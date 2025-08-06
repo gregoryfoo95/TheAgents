@@ -1,5 +1,6 @@
 from .base import BaseResponse, PaginatedResponse, ErrorResponse
-from .user import UserBase, UserCreate, UserUpdate, User, UserLogin, Token, TokenData
+from .user import UserBase, UserCreate, UserUpdate, User
+from .auth import TokenResponse as Token, RefreshTokenRequest, OAuthUserInfo
 from .property import (
     PropertyBase, PropertyCreate, PropertyUpdate, Property, PropertyFeature,
     PropertyListResponse, PropertyFilters
@@ -8,18 +9,20 @@ from .property import (
 __all__ = [
     # Base schemas
     "BaseResponse",
-    "PaginatedResponse", 
+    "PaginatedResponse",
     "ErrorResponse",
-    
+
     # User schemas
     "UserBase",
     "UserCreate",
     "UserUpdate",
     "User",
-    "UserLogin",
-    "Token",
-    "TokenData",
     
+    # Auth schemas
+    "Token",
+    "RefreshTokenRequest",
+    "OAuthUserInfo",
+
     # Property schemas
     "PropertyBase",
     "PropertyCreate",
@@ -28,4 +31,4 @@ __all__ = [
     "PropertyFeature",
     "PropertyListResponse",
     "PropertyFilters"
-] 
+]

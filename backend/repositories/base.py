@@ -11,42 +11,42 @@ ModelType = TypeVar("ModelType", bound=Base)
 
 class BaseRepository(Generic[ModelType], ABC):
     """Base repository class with common CRUD operations."""
-    
+
     def __init__(self, model: Type[ModelType], db: AsyncSession):
         self.model = model
         self.db = db
-    
+
     async def get_by_id(
-        self, 
-        id: int, 
+        self,
+        id: int,
         load_relationships: Optional[List[str]] = None
     ) -> Optional[ModelType]:
         """Get a single record by ID with optional relationship loading."""
         query = select(self.model).where(self.model.id == id)
-        
+
         if load_relationships:
             for relationship in load_relationships:
                 query = query.options(selectinload(getattr(self.model, relationship)))
-        
+
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
-    
+
     async def get_by_field(
-        self, 
-        field_name: str, 
+        self,
+        field_name: str,
         value: Any,
         load_relationships: Optional[List[str]] = None
     ) -> Optional[ModelType]:
         """Get a single record by any field."""
         query = select(self.model).where(getattr(self.model, field_name) == value)
-        
+
         if load_relationships:
             for relationship in load_relationships:
                 query = query.options(selectinload(getattr(self.model, relationship)))
-        
+
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
-    
+
     async def get_all(
         self,
         skip: int = 0,
@@ -58,7 +58,7 @@ class BaseRepository(Generic[ModelType], ABC):
     ) -> List[ModelType]:
         """Get multiple records with filtering, pagination, and ordering."""
         query = select(self.model)
-        
+
         # Apply filters
         if filters:
             conditions = []
@@ -71,7 +71,7 @@ class BaseRepository(Generic[ModelType], ABC):
                         field_attr = getattr(self.model, field)
                         operator = value['operator']
                         val = value['value']
-                        
+
                         if operator == 'gte':
                             conditions.append(field_attr >= val)
                         elif operator == 'lte':
@@ -82,15 +82,15 @@ class BaseRepository(Generic[ModelType], ABC):
                             conditions.append(field_attr != val)
                     else:
                         conditions.append(getattr(self.model, field) == value)
-            
+
             if conditions:
                 query = query.where(and_(*conditions))
-        
+
         # Apply relationships loading
         if load_relationships:
             for relationship in load_relationships:
                 query = query.options(selectinload(getattr(self.model, relationship)))
-        
+
         # Apply ordering
         if order_by and hasattr(self.model, order_by):
             order_field = getattr(self.model, order_by)
@@ -98,17 +98,17 @@ class BaseRepository(Generic[ModelType], ABC):
                 query = query.order_by(order_field.desc())
             else:
                 query = query.order_by(order_field)
-        
+
         # Apply pagination
         query = query.offset(skip).limit(limit)
-        
+
         result = await self.db.execute(query)
         return result.scalars().all()
-    
+
     async def count(self, filters: Optional[Dict[str, Any]] = None) -> int:
         """Count records with optional filtering."""
         query = select(func.count(self.model.id))
-        
+
         if filters:
             conditions = []
             for field, value in filters.items():
@@ -117,13 +117,13 @@ class BaseRepository(Generic[ModelType], ABC):
                         conditions.append(getattr(self.model, field).in_(value))
                     else:
                         conditions.append(getattr(self.model, field) == value)
-            
+
             if conditions:
                 query = query.where(and_(*conditions))
-        
+
         result = await self.db.execute(query)
         return result.scalar()
-    
+
     async def create(self, **kwargs) -> ModelType:
         """Create a new record."""
         obj = self.model(**kwargs)
@@ -131,10 +131,10 @@ class BaseRepository(Generic[ModelType], ABC):
         await self.db.commit()
         await self.db.refresh(obj)
         return obj
-    
+
     async def update(
-        self, 
-        id: int, 
+        self,
+        id: int,
         **kwargs
     ) -> Optional[ModelType]:
         """Update a record by ID."""
@@ -144,40 +144,40 @@ class BaseRepository(Generic[ModelType], ABC):
             .values(**kwargs)
             .returning(self.model)
         )
-        
+
         result = await self.db.execute(query)
         await self.db.commit()
         return result.scalar_one_or_none()
-    
+
     async def delete(self, id: int) -> bool:
         """Delete a record by ID."""
         query = delete(self.model).where(self.model.id == id)
         result = await self.db.execute(query)
         await self.db.commit()
         return result.rowcount > 0
-    
+
     async def bulk_create(self, data: List[Dict[str, Any]]) -> List[ModelType]:
         """Create multiple records in bulk."""
         objects = [self.model(**item) for item in data]
         self.db.add_all(objects)
         await self.db.commit()
-        
+
         # Refresh all objects to get their IDs
         for obj in objects:
             await self.db.refresh(obj)
-        
+
         return objects
-    
+
     async def exists(self, **kwargs) -> bool:
         """Check if a record exists with the given criteria."""
         conditions = []
         for field, value in kwargs.items():
             if hasattr(self.model, field):
                 conditions.append(getattr(self.model, field) == value)
-        
+
         if not conditions:
             return False
-        
+
         query = select(func.count(self.model.id)).where(and_(*conditions))
         result = await self.db.execute(query)
-        return result.scalar() > 0 
+        return result.scalar() > 0

@@ -20,5 +20,5 @@ RUN mkdir -p uploads
 # Expose port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] 
+# Command to run the application with enhanced reload
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-include", "*.py"] 

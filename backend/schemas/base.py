@@ -23,7 +23,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
     page: int = Field(..., ge=1, description="Current page number")
     size: int = Field(..., ge=1, le=100, description="Number of items per page")
     total_pages: int = Field(..., ge=0, description="Total number of pages")
-    
+
     model_config = ConfigDict(
         from_attributes=True,
         json_encoders={
@@ -37,7 +37,7 @@ class ErrorResponse(BaseModel):
     detail: str = Field(..., description="Error message")
     error_code: Optional[str] = Field(None, description="Error code")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Error timestamp")
-    
+
     model_config = ConfigDict(
         from_attributes=True,
         json_encoders={
@@ -50,7 +50,7 @@ class SuccessResponse(BaseModel):
     """Success response schema."""
     message: str = Field(..., description="Success message")
     data: Optional[Any] = Field(None, description="Response data")
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -60,5 +60,5 @@ class FileUploadResponse(BaseModel):
     file_name: str = Field(..., description="Name of uploaded file")
     file_size: int = Field(..., ge=0, description="Size of uploaded file in bytes")
     file_type: str = Field(..., description="MIME type of uploaded file")
-    
-    model_config = ConfigDict(from_attributes=True) 
+
+    model_config = ConfigDict(from_attributes=True)

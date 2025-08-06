@@ -9,11 +9,13 @@ import { PropertiesPage } from './pages/PropertiesPage'
 import { PropertyDetailPage } from './pages/PropertyDetailPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { CreatePropertyPage } from './pages/CreatePropertyPage'
 import { ChatPage } from './pages/ChatPage'
 import { BookingsPage } from './pages/BookingsPage'
 import { LawyersPage } from './pages/LawyersPage'
+import { UserTypeSelectionPage } from './pages/UserTypeSelectionPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 function App() {
@@ -28,6 +30,8 @@ function App() {
           <Route path="lawyers" element={<LawyersPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
+          <Route path="auth/callback" element={<OAuthCallbackPage />} />
+          <Route path="select-role" element={<UserTypeSelectionPage />} />
         </Route>
 
         {/* Protected routes */}

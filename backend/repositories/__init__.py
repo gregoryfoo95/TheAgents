@@ -4,6 +4,6 @@ from .property import PropertyRepository
 
 __all__ = [
     "BaseRepository",
-    "UserRepository", 
+    "UserRepository",
     "PropertyRepository"
-] 
+]

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from pydantic.types import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 
@@ -8,9 +9,10 @@ from schemas.property import (
     PropertyCreate, PropertyUpdate, PropertyFilters,
     Property as PropertySchema, PropertyListResponse
 )
+from schemas.property import PropertyType, PropertyStatus
 from schemas.user import User as UserSchema
 from schemas.base import SuccessResponse
-from middleware.auth import get_current_active_user, require_seller
+from middleware.auth import get_current_active_user, require_agent
 
 property_router = APIRouter(prefix="/api/properties", tags=["properties"])
 
@@ -24,32 +26,32 @@ property_router = APIRouter(prefix="/api/properties", tags=["properties"])
 )
 async def search_properties(
     # Property type filter
-    property_type: Optional[str] = Query(None, description="Filter by property type"),
-    
+    property_type: Optional[PropertyType] = Query(None, description="Filter by property type"),
+
     # Price filters
-    min_price: Optional[float] = Query(None, ge=0, description="Minimum price"),
-    max_price: Optional[float] = Query(None, ge=0, description="Maximum price"),
-    
+    min_price: Optional[Decimal] = Query(None, ge=0, description="Minimum price"),
+    max_price: Optional[Decimal] = Query(None, ge=0, description="Maximum price"),
+
     # Room filters
     bedrooms: Optional[int] = Query(None, ge=0, le=20, description="Number of bedrooms"),
     bathrooms: Optional[int] = Query(None, ge=0, le=20, description="Number of bathrooms"),
-    
+
     # Size filters
     min_square_feet: Optional[int] = Query(None, gt=0, description="Minimum square footage"),
     max_square_feet: Optional[int] = Query(None, gt=0, description="Maximum square footage"),
-    
+
     # Location filters
     city: Optional[str] = Query(None, description="City"),
     state: Optional[str] = Query(None, description="State"),
     zip_code: Optional[str] = Query(None, description="ZIP code"),
-    
+
     # Status filter
-    status: Optional[str] = Query("active", description="Property status"),
-    
+    status_property: Optional[PropertyStatus] = Query("active", description="Property status"),
+
     # Pagination
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Items per page"),
-    
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """Search properties with filters and pagination."""
@@ -66,9 +68,9 @@ async def search_properties(
             city=city,
             state=state,
             zip_code=zip_code,
-            status=status
+            status=status_property
         )
-        
+
         property_service = PropertyService(db)
         result = await property_service.search_properties(filters, page, size)
         return result
@@ -119,13 +121,13 @@ async def get_property_by_id(
     try:
         property_service = PropertyService(db)
         property_obj = await property_service.get_property_by_id(property_id)
-        
+
         if not property_obj:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Property not found"
             )
-        
+
         return property_obj
     except HTTPException:
         raise
@@ -170,7 +172,7 @@ async def get_similar_properties(
 )
 async def create_property(
     property_data: PropertyCreate,
-    current_user: UserSchema = Depends(require_seller),
+    current_user: UserSchema = Depends(require_agent),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Create a new property listing."""
@@ -230,9 +232,9 @@ async def delete_property(
     try:
         property_service = PropertyService(db)
         success = await property_service.delete_property(property_id, current_user.id)
-        
+
         if success:
-            return SuccessResponse(message="Property deleted successfully")
+            return SuccessResponse(message="Property deleted successfully", data=None)
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -255,7 +257,7 @@ async def delete_property(
 )
 async def update_property_status(
     property_id: int,
-    status: str = Query(..., description="New property status"),
+    property_status: PropertyStatus = Query(..., description="New property status"),
     current_user: UserSchema = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_db)
 ):
@@ -263,15 +265,15 @@ async def update_property_status(
     try:
         property_service = PropertyService(db)
         property_obj = await property_service.update_property_status(
-            property_id, status, current_user.id
+            property_id, property_status, current_user.id
         )
-        
+
         if not property_obj:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Property not found"
             )
-        
+
         return property_obj
     except HTTPException:
         raise
@@ -302,14 +304,14 @@ async def upload_property_images(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No files provided"
             )
-        
+
         # Limit number of files
         if len(files) > 10:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Maximum 10 files allowed per upload"
             )
-        
+
         property_service = PropertyService(db)
         result = await property_service.upload_property_images(
             property_id, files, current_user.id
@@ -341,7 +343,7 @@ async def get_properties_by_seller(
         # Only allow sellers to see their own inactive properties
         if include_inactive and current_user.id != seller_id:
             include_inactive = False
-        
+
         property_service = PropertyService(db)
         properties = await property_service.get_properties_by_seller(
             seller_id, include_inactive
@@ -364,7 +366,7 @@ async def get_properties_by_seller(
 )
 async def get_my_properties(
     include_inactive: bool = Query(True, description="Include inactive properties"),
-    current_user: UserSchema = Depends(require_seller),
+    current_user: UserSchema = Depends(require_agent),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Get current user's property listings."""
@@ -380,4 +382,4 @@ async def get_my_properties(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get properties: {str(e)}"
-        ) 
+        )

@@ -13,8 +13,8 @@ import type {
   LawyerProfile,
   AIValuation,
   AIRecommendation,
-  LoginData,
-  RegisterData,
+  OAuthTokens,
+  UserTypeSelectionData,
 } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -25,24 +25,18 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Include cookies in requests
 })
 
-// Add auth token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
+// HTTP-only cookies are automatically included in requests
+// No need to manually add Authorization header since backend uses cookies
 
 // Handle response errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      // HTTP-only cookies will be cleared by logout endpoint
       window.location.href = '/login'
     }
     return Promise.reject(error)
@@ -51,18 +45,27 @@ api.interceptors.response.use(
 
 // Authentication
 export const authAPI = {
-  login: async (data: LoginData): Promise<{ access_token: string; token_type: string }> => {
-    const response = await api.post('/api/users/login', data)
-    return response.data
-  },
-
-  register: async (data: RegisterData): Promise<User> => {
-    const response = await api.post('/api/users/register', data)
-    return response.data
-  },
-
   getCurrentUser: async (): Promise<User> => {
-    const response = await api.get('/api/users/me')
+    const response = await api.get('/api/auth/me')
+    return response.data
+  },
+
+  refreshToken: async (refreshToken: string): Promise<OAuthTokens> => {
+    const response = await api.post('/api/auth/refresh', { refresh_token: refreshToken })
+    return response.data
+  },
+
+  updateUserType: async (data: UserTypeSelectionData): Promise<User> => {
+    const response = await api.put('/api/auth/user-type', data)
+    return response.data
+  },
+
+  logout: async (): Promise<void> => {
+    await api.post('/api/auth/logout')
+  },
+
+  getOAuthProviders: async (): Promise<{ providers: string[] }> => {
+    const response = await api.get('/api/auth/providers')
     return response.data
   },
 

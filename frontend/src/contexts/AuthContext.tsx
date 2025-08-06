@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useCurrentUser, useLogin, useRegister, useLogout } from '../hooks/useAuth'
-import type { AuthContextType, RegisterData } from '../types'
+import { useCurrentUser, useOAuthLogin, useLogout, useRefreshToken } from '../hooks/useAuth'
+import type { AuthContextType, OAuthTokens } from '../types'
+import Cookies from 'js-cookie'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -18,77 +19,111 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(null)
+  const [tokens, setTokens] = useState<OAuthTokens | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   
   const queryClient = useQueryClient()
   
   // Use TanStack Query hooks
   const { data: user, isLoading: isUserLoading, error: userError } = useCurrentUser()
-  const loginMutation = useLogin()
-  const registerMutation = useRegister()
+  const oauthLoginMutation = useOAuthLogin()
   const logoutMutation = useLogout()
+  const refreshTokenMutation = useRefreshToken()
 
-  // Initialize auth state from localStorage
+  // Initialize auth state by checking session storage and API
   useEffect(() => {
-    const initAuth = () => {
-      const storedToken = localStorage.getItem('token')
-      if (storedToken) {
-        setToken(storedToken)
+    const checkAuthStatus = async () => {
+      // Check session storage for immediate auth status
+      const sessionAuth = sessionStorage.getItem('isAuthenticated')
+      const oauth_id = sessionStorage.getItem('oauth_id')
+      const profile_picture_url = sessionStorage.getItem('profile_picture_url')
+      
+      if (sessionAuth === 'true') {
+        // Authentication status available in session storage
+        console.log('Found auth session storage', { oauth_id, profile_picture_url })
       }
+      
+      // HTTP-only cookies are automatically handled by the browser
+      // Current user query will run and validate actual authentication
+      if (!user && !userError) {
+        // Small delay for TanStack Query to run
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
       setIsInitialized(true)
     }
-
-    initAuth()
+    
+    checkAuthStatus()
   }, [])
 
   // Handle auth errors (token invalid, etc.)
   useEffect(() => {
-    if (userError && token) {
-      // Token is invalid, clear it
-      setToken(null)
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      queryClient.clear()
+    if (userError && tokens) {
+      // Try refreshing token first
+      if (tokens.refresh_token) {
+        refreshTokenMutation.mutate(tokens.refresh_token, {
+          onSuccess: (newTokens) => {
+            setTokens(newTokens)
+            // Store new tokens in cookies
+            Cookies.set('access_token', newTokens.access_token, { expires: 1/24 }) // 1 hour
+            Cookies.set('refresh_token', newTokens.refresh_token || '', { expires: 30 }) // 30 days
+          },
+          onError: () => {
+            // Refresh failed, clear tokens
+            clearAuth()
+          }
+        })
+      } else {
+        clearAuth()
+      }
     }
-  }, [userError, token, queryClient])
+  }, [userError, tokens, queryClient, refreshTokenMutation])
 
-  const login = async (email: string, password: string) => {
-    try {
-      const response = await loginMutation.mutateAsync({ email, password })
-      setToken(response.access_token)
-    } catch (error) {
-      throw error // Re-throw to handle in components
-    }
+  const clearAuth = () => {
+    setTokens(null)
+    // Clear session storage
+    sessionStorage.removeItem('oauth_id')
+    sessionStorage.removeItem('profile_picture_url')
+    sessionStorage.removeItem('isAuthenticated')
+    // HTTP-only cookies will be cleared by logout endpoint
+    queryClient.clear()
   }
 
-  const register = async (userData: RegisterData) => {
+  const loginWithGoogle = () => {
+    // Redirect to backend OAuth endpoint
+    // The backend will handle the Google OAuth flow and redirect back to frontend
+    const frontendCallbackUrl = `${window.location.origin}/auth/callback`
+    console.log("Redirect URL:", frontendCallbackUrl)
+    window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google?redirect_uri=${encodeURIComponent(frontendCallbackUrl)}`
+  }
+
+  const handleOAuthCallback = async () => {
     try {
-      await registerMutation.mutateAsync(userData)
-      // loginMutation is called automatically in the register hook
-      const storedToken = localStorage.getItem('token')
-      if (storedToken) {
-        setToken(storedToken)
-      }
+      // Tokens are now in HTTP-only cookies set by backend
+      // Just refresh user data to update authentication state
+      await queryClient.invalidateQueries({ queryKey: ['currentUser'] })
+      // Force refetch current user data
+      await queryClient.refetchQueries({ queryKey: ['currentUser'] })
     } catch (error) {
-      throw error // Re-throw to handle in components
+      throw error
     }
   }
 
   const logout = () => {
     logoutMutation.mutate()
-    setToken(null)
+    clearAuth()
   }
 
-  const isLoading = !isInitialized || isUserLoading || loginMutation.isPending || registerMutation.isPending
+  const isLoading = !isInitialized || isUserLoading || oauthLoginMutation.isPending || refreshTokenMutation.isPending
 
   const value: AuthContextType = {
     user: user || null,
-    token,
-    login,
-    register,
+    tokens,
+    loginWithGoogle,
+    handleOAuthCallback,
     logout,
     isLoading,
+    isAuthenticated: !!user, // User existence indicates authentication
   }
 
   return (

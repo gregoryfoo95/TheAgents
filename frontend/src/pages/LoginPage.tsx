@@ -1,55 +1,44 @@
 import React, { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Card,
   CardContent,
-  TextField,
   Button,
   Typography,
   Container,
-  InputAdornment,
-  IconButton,
   Alert,
   CircularProgress,
+  Divider,
 } from '@mui/material'
 import {
-  Visibility,
-  VisibilityOff,
   Login as LoginIcon,
+  Google as GoogleIcon,
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login } = useAuth()
+  const { loginWithGoogle } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
-  const from = location.state?.from?.pathname || '/dashboard'
+  const URI_FROM = '/dashboard'
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleGoogleLogin = () => {
     if (isLoading) return
-
+    
     try {
       setIsLoading(true)
       setError('')
-      await login(email, password)
-      navigate(from, { replace: true })
+      // Store the intended destination
+      localStorage.setItem('oauth_redirect_after_login', URI_FROM)
+      loginWithGoogle()
     } catch (error: any) {
-      setError(error.response?.data?.detail || 'Failed to sign in')
-    } finally {
+      setError('Failed to initialize Google login')
       setIsLoading(false)
     }
-  }
-
-  const handleTogglePasswordVisibility = () => {
-    setShowPassword(!showPassword)
   }
 
   return (
@@ -74,18 +63,10 @@ export const LoginPage: React.FC = () => {
                 }}
               />
               <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-                Sign in to your account
+                Sign in to Property Marketplace
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Or{' '}
-                <Typography
-                  component={Link}
-                  to="/register"
-                  color="primary"
-                  sx={{ textDecoration: 'none', fontWeight: 'medium' }}
-                >
-                  create a new account
-                </Typography>
+                Use your Google account to get started
               </Typography>
             </Box>
 
@@ -95,63 +76,32 @@ export const LoginPage: React.FC = () => {
               </Alert>
             )}
 
-            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                id="email"
-                label="Email Address"
-                name="email"
-                autoComplete="email"
-                autoFocus
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                sx={{ mb: 2 }}
-              />
-              
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                name="password"
-                label="Password"
-                id="password"
-                autoComplete="current-password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={handleTogglePasswordVisibility}
-                        edge="end"
-                        disabled={isLoading}
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ mb: 3 }}
-              />
-
+            <Box sx={{ mt: 2 }}>
               <Button
-                type="submit"
                 fullWidth
-                variant="contained"
+                variant="outlined"
                 size="large"
-                disabled={isLoading || !email || !password}
-                sx={{ mt: 2, py: 1.5 }}
-                startIcon={isLoading ? <CircularProgress size={20} /> : undefined}
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+                startIcon={isLoading ? <CircularProgress size={20} /> : <GoogleIcon />}
+                sx={{
+                  py: 1.5,
+                  borderColor: '#4285f4',
+                  color: '#4285f4',
+                  '&:hover': {
+                    borderColor: '#3367d6',
+                    backgroundColor: 'rgba(66, 133, 244, 0.04)',
+                  },
+                }}
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? 'Connecting...' : 'Continue with Google'}
               </Button>
+              
+              <Box sx={{ mt: 3, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  By signing in, you agree to our Terms of Service and Privacy Policy
+                </Typography>
+              </Box>
             </Box>
           </CardContent>
         </Card>

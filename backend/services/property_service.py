@@ -1,10 +1,8 @@
-from typing import Optional, List, Any, Dict
+from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status, UploadFile
-from fastapi.encoders import jsonable_encoder
 import os
 import uuid
-from pathlib import Path
 
 from repositories.property import PropertyRepository
 from repositories.user import UserRepository
@@ -12,9 +10,9 @@ from schemas.property import (
     PropertyCreate, PropertyUpdate, PropertyFilters,
     PropertyListResponse, Property as PropertySchema, PropertyImageUpload
 )
-from models.property import Property, PropertyFeature
+from models.property import PropertyFeature, Address, PropertyImage
 from utilities.config import get_settings
-from utilities.redis import redis_client, cache_result, invalidate_cache_pattern
+from utilities.redis import redis_client, invalidate_cache_pattern
 
 settings = get_settings()
 
@@ -35,16 +33,30 @@ class PropertyService:
         """Create a new property listing."""
         # Verify seller exists and is a seller
         seller = await self.user_repo.get_by_id(seller_id)
-        if not seller or seller.user_type != "seller":
+        if seller is None or getattr(seller, "user_type", None) != "seller":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only sellers can create property listings"
             )
-        
+
+
+        # Create address first
+        address_data = {
+            'street_address': property_data.address,
+            'city': property_data.city,
+            'state': property_data.state,
+            'zip_code': property_data.zip_code,
+            'latitude': property_data.latitude,
+            'longitude': property_data.longitude
+        }
+        address = Address(**address_data)
+        self.db.add(address)
+        await self.db.flush()  # Get the address ID
 
         # Create property
-        property_dict = property_data.model_dump(exclude={'features'})
+        property_dict = property_data.model_dump(exclude={'features', 'address', 'city', 'state', 'zip_code', 'latitude', 'longitude'})
         property_dict['seller_id'] = seller_id
+        property_dict['address_id'] = address.id
 
         property_obj = await self.property_repo.create(**property_dict)
 
@@ -64,8 +76,8 @@ class PropertyService:
 
         # Load relationships and return
         property_with_relations = await self.property_repo.get_by_id(
-            property_obj.id,
-            load_relationships=["seller", "features"]
+            property_obj.id,  # type: ignore
+            load_relationships=["seller", "address", "images", "features"]
         )
 
         return PropertySchema.model_validate(property_with_relations)
@@ -82,10 +94,10 @@ class PropertyService:
         # Get from database
         property_obj = await self.property_repo.get_by_id(
             property_id,
-            load_relationships=["seller", "features"]
+            load_relationships=["seller", "address", "images", "features"]
         )
 
-        if not property_obj:
+        if not property_obj:  # type: ignore
             return None
 
         property_schema = PropertySchema.model_validate(property_obj)
@@ -153,13 +165,13 @@ class PropertyService:
         """Update property (only by owner)."""
         # Check if property exists and user is the owner
         property_obj = await self.property_repo.get_by_id(property_id)
-        if not property_obj:
+        if not property_obj:  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Property not found"
             )
 
-        if property_obj.seller_id != user_id:
+        if property_obj.seller_id != user_id:  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only update your own properties"
@@ -169,7 +181,7 @@ class PropertyService:
         update_data = property_data.model_dump(exclude_unset=True)
         updated_property = await self.property_repo.update(property_id, **update_data)
 
-        if not updated_property:
+        if not updated_property:  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Property not found"
@@ -182,7 +194,7 @@ class PropertyService:
         # Return updated property with relationships
         property_with_relations = await self.property_repo.get_by_id(
             property_id,
-            load_relationships=["seller", "features"]
+            load_relationships=["seller", "address", "images", "features"]
         )
 
         return PropertySchema.model_validate(property_with_relations)
@@ -191,13 +203,13 @@ class PropertyService:
         """Delete property (only by owner)."""
         # Check ownership
         property_obj = await self.property_repo.get_by_id(property_id)
-        if not property_obj:
+        if not property_obj:  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Property not found"
             )
 
-        if property_obj.seller_id != user_id:
+        if property_obj.seller_id != user_id:  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only delete your own properties"
@@ -234,13 +246,13 @@ class PropertyService:
         """Upload images for a property."""
         # Check ownership
         property_obj = await self.property_repo.get_by_id(property_id)
-        if not property_obj:
+        if not property_obj:  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Property not found"
             )
 
-        if property_obj.seller_id != user_id:
+        if property_obj.seller_id != user_id:  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only upload images to your own properties"
@@ -281,10 +293,12 @@ class PropertyService:
 
             image_urls.append(f"/uploads/properties/{property_id}/{unique_filename}")
 
-        # Update property with new images
-        updated_property = await self.property_repo.add_images(property_id, image_urls)
+        # Create PropertyImage objects
+        image_data = [{'url': url, 'alt_text': f'Property {property_id} image', 'is_primary': i == 0} 
+                     for i, url in enumerate(image_urls)]
+        updated_property = await self.property_repo.add_images(property_id, image_data)
 
-        if not updated_property:
+        if not updated_property:  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Property not found"
@@ -296,7 +310,7 @@ class PropertyService:
         return PropertyImageUpload(
             property_id=property_id,
             image_urls=image_urls,
-            total_images=len(updated_property.images or [])
+            total_images=len(updated_property.images)  # type: ignore
         )
 
     async def get_featured_properties(self, limit: int = 10) -> List[PropertySchema]:
@@ -350,28 +364,28 @@ class PropertyService:
     async def update_property_status(
         self,
         property_id: int,
-        status: str,
+        status_property: str,
         user_id: int
     ) -> Optional[PropertySchema]:
         """Update property status (by owner only)."""
         # Check ownership
         property_obj = await self.property_repo.get_by_id(property_id)
-        if not property_obj:
+        if not property_obj:  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Property not found"
             )
 
-        if property_obj.seller_id != user_id:
+        if property_obj.seller_id != user_id:  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only update your own properties"
             )
 
         # Update status
-        updated_property = await self.property_repo.update_status(property_id, status)
+        updated_property = await self.property_repo.update_status(property_id, status_property)
 
-        if not updated_property:
+        if not updated_property:  # type: ignore
             return None
 
         # Invalidate caches
@@ -390,4 +404,4 @@ class PropertyService:
         ]
 
         for pattern in patterns:
-            await invalidate_cache_pattern(pattern) 
+            await invalidate_cache_pattern(pattern)

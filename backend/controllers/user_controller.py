@@ -4,93 +4,12 @@ from typing import Optional, List
 
 from utilities.database import get_async_db
 from services.user_service import UserService
-from schemas.user import (
-    UserCreate, UserUpdate, User as UserSchema, UserLogin, Token
-)
+from schemas.user import UserCreate, UserUpdate, User as UserSchema
 from schemas.base import SuccessResponse, ErrorResponse
 from middleware.auth import get_current_user, get_current_active_user
 
 user_router = APIRouter(prefix="/api/users", tags=["users"])
 
-
-@user_router.post(
-    "/register",
-    response_model=UserSchema,
-    status_code=status.HTTP_201_CREATED,
-    summary="Register a new user",
-    description="Create a new user account with email, password, and profile information"
-)
-async def register_user(
-    user_data: UserCreate,
-    db: AsyncSession = Depends(get_async_db)
-):
-    """Register a new user."""
-    try:
-        user_service = UserService(db)
-        user = await user_service.create_user(user_data)
-        return user
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create user: {str(e)}"
-        )
-
-
-@user_router.post(
-    "/login",
-    response_model=Token,
-    summary="User login",
-    description="Authenticate user and return JWT access token"
-)
-async def login_user(
-    login_data: UserLogin,
-    db: AsyncSession = Depends(get_async_db)
-):
-    """Authenticate user and return access token."""
-    try:
-        user_service = UserService(db)
-        token = await user_service.authenticate_user(login_data)
-        return token
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Authentication failed: {str(e)}"
-        )
-
-
-@user_router.post(
-    "/logout",
-    response_model=SuccessResponse,
-    summary="User logout",
-    description="Logout user by invalidating session"
-)
-async def logout_user(
-    current_user: UserSchema = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_async_db)
-):
-    """Logout current user."""
-    try:
-        user_service = UserService(db)
-        success = await user_service.logout_user(current_user.id)
-        
-        if success:
-            return SuccessResponse(message="Successfully logged out")
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Logout failed"
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Logout failed: {str(e)}"
-        )
 
 
 @user_router.get(
@@ -146,13 +65,13 @@ async def get_user_by_id(
     try:
         user_service = UserService(db)
         user = await user_service.get_user_by_id(user_id)
-        
+
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
-        
+
         return user
     except HTTPException:
         raise
@@ -170,7 +89,7 @@ async def get_user_by_id(
     description="Get a list of users with optional filtering by type"
 )
 async def get_users(
-    user_type: Optional[str] = Query(None, description="Filter by user type (buyer, seller, lawyer)"),
+    user_type: Optional[str] = Query(None, description="Filter by user type (consumer, agent, lawyer)"),
     skip: int = Query(0, ge=0, description="Number of users to skip"),
     limit: int = Query(20, ge=1, le=100, description="Number of users to return"),
     current_user: UserSchema = Depends(get_current_active_user),
@@ -237,7 +156,7 @@ async def deactivate_current_user(
     try:
         user_service = UserService(db)
         success = await user_service.deactivate_user(current_user.id)
-        
+
         if success:
             return SuccessResponse(message="Account deactivated successfully")
         else:
@@ -251,4 +170,4 @@ async def deactivate_current_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to deactivate account: {str(e)}"
-        ) 
+        )

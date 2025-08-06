@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -53,14 +53,30 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       SECRET_KEY: ${SECRET_KEY}
+      PYTHONPATH: /app
+      WATCHFILES_FORCE_POLLING: true
+      PYTHONUNBUFFERED: 1
+      LOG_LEVEL: DEBUG
     depends_on:
       - postgres
       - redis
     volumes:
       - ./backend:/app
       - uploaded_files:/app/uploads
+      # Exclude certain directories from being watched
+      - /app/__pycache__
+      - /app/.pytest_cache
     networks:
       - property_network
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app
+          ignore:
+            - __pycache__/
+            - .git/
+            - .pytest_cache/
 
   # React Frontend
   frontend:
@@ -72,13 +88,26 @@ services:
       - "3000:3000"
     environment:
       VITE_API_URL: ${VITE_API_URL}
+      CHOKIDAR_USEPOLLING: true
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - /app/.next
+      - /app/dist
     depends_on:
       - backend
     networks:
       - property_network
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          ignore:
+            - node_modules/
+            - .git/
+            - dist/
+            - .next/
 
 volumes:
   postgres_data:

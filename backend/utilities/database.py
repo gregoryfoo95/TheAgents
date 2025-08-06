@@ -88,4 +88,4 @@ async def create_tables():
 async def drop_tables():
     """Drop all database tables (for testing)."""
     async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all) 
+        await conn.run_sync(Base.metadata.drop_all)

@@ -4,7 +4,10 @@ export interface User {
   first_name: string
   last_name: string
   phone?: string
-  user_type: 'buyer' | 'seller' | 'lawyer'
+  user_type: 'consumer' | 'agent' | 'lawyer' | null
+  oauth_provider: string
+  oauth_id: string
+  profile_picture_url?: string
   is_active: boolean
   created_at: string
   updated_at: string
@@ -141,27 +144,34 @@ export interface AIRecommendation {
   created_at: string
 }
 
+export interface OAuthTokens {
+  access_token: string
+  refresh_token?: string
+  token_type: string
+  expires_in: number
+  refresh_expires_in?: number
+}
+
 export interface AuthContextType {
   user: User | null
-  token: string | null
-  login: (email: string, password: string) => Promise<void>
-  register: (userData: RegisterData) => Promise<void>
+  tokens: OAuthTokens | null
+  loginWithGoogle: () => void
+  handleOAuthCallback: () => Promise<void>
   logout: () => void
   isLoading: boolean
+  isAuthenticated: boolean
 }
 
-export interface RegisterData {
-  email: string
-  password: string
-  first_name: string
-  last_name: string
+export interface UserTypeSelectionData {
+  user_type: 'consumer' | 'agent' | 'lawyer'
   phone?: string
-  user_type: 'buyer' | 'seller' | 'lawyer'
 }
 
-export interface LoginData {
-  email: string
-  password: string
+export interface OAuthCallbackParams {
+  access_token: string
+  refresh_token?: string
+  token_type: string
+  error?: string
 }
 
 export interface CreatePropertyData {

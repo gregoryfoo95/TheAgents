@@ -13,16 +13,16 @@ settings = get_settings()
 
 class RedisClient:
     """Async Redis client with error handling and serialization support."""
-    
+
     def __init__(self):
         self.redis = redis.from_url(
-            settings.redis_url, 
-            encoding="utf-8", 
+            settings.redis_url,
+            encoding="utf-8",
             decode_responses=True,
             retry_on_timeout=True,
             retry_on_error=[redis.ConnectionError, redis.TimeoutError]
         )
-    
+
     async def get(self, key: str) -> Optional[str]:
         """Get string value from Redis."""
         try:
@@ -30,11 +30,11 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis GET error for key {key}: {e}")
             return None
-    
+
     async def set(
-        self, 
-        key: str, 
-        value: str, 
+        self,
+        key: str,
+        value: str,
         expire: Optional[int] = None
     ) -> bool:
         """Set string value in Redis with optional expiration."""
@@ -43,7 +43,7 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis SET error for key {key}: {e}")
             return False
-    
+
     async def get_json(self, key: str) -> Optional[dict]:
         """Get JSON value from Redis."""
         try:
@@ -52,11 +52,11 @@ class RedisClient:
         except (json.JSONDecodeError, Exception) as e:
             logger.error(f"Redis GET JSON error for key {key}: {e}")
             return None
-    
+
     async def set_json(
-        self, 
-        key: str, 
-        value: Union[dict, list], 
+        self,
+        key: str,
+        value: Union[dict, list],
         expire: Optional[int] = None
     ) -> bool:
         """Set JSON value in Redis."""
@@ -66,7 +66,7 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis SET JSON error for key {key}: {e}")
             return False
-    
+
     async def get_object(self, key: str) -> Optional[Any]:
         """Get pickled object from Redis."""
         try:
@@ -75,11 +75,11 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis GET object error for key {key}: {e}")
             return None
-    
+
     async def set_object(
-        self, 
-        key: str, 
-        value: Any, 
+        self,
+        key: str,
+        value: Any,
         expire: Optional[int] = None
     ) -> bool:
         """Set pickled object in Redis."""
@@ -89,7 +89,7 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis SET object error for key {key}: {e}")
             return False
-    
+
     async def delete(self, *keys: str) -> int:
         """Delete keys from Redis."""
         try:
@@ -97,7 +97,7 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis DELETE error for keys {keys}: {e}")
             return 0
-    
+
     async def exists(self, key: str) -> bool:
         """Check if key exists in Redis."""
         try:
@@ -105,7 +105,7 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis EXISTS error for key {key}: {e}")
             return False
-    
+
     async def increment(self, key: str, amount: int = 1) -> Optional[int]:
         """Increment a key by amount."""
         try:
@@ -113,7 +113,7 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis INCR error for key {key}: {e}")
             return None
-    
+
     async def expire(self, key: str, seconds: int) -> bool:
         """Set expiration for a key."""
         try:
@@ -121,7 +121,7 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis EXPIRE error for key {key}: {e}")
             return False
-    
+
     async def keys(self, pattern: str = "*") -> list[str]:
         """Get keys matching pattern."""
         try:
@@ -129,7 +129,7 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis KEYS error for pattern {pattern}: {e}")
             return []
-    
+
     async def flush_db(self) -> bool:
         """Flush current database (use with caution!)."""
         try:
@@ -138,7 +138,7 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis FLUSHDB error: {e}")
             return False
-    
+
     async def ping(self) -> bool:
         """Ping Redis to check connection."""
         try:
@@ -147,7 +147,7 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Redis PING error: {e}")
             return False
-    
+
     async def close(self):
         """Close Redis connection."""
         try:
@@ -167,7 +167,7 @@ def cache_result(
 ):
     """
     Decorator to cache function results in Redis.
-    
+
     Args:
         expire: Expiration time in seconds
         key_prefix: Prefix for cache key
@@ -178,25 +178,25 @@ def cache_result(
         async def wrapper(*args, **kwargs):
             # Create cache key from function name and arguments
             cache_key = f"{key_prefix}:{func.__name__}:{hash(str(args) + str(kwargs))}"
-            
+
             # Try to get from cache
             if serialize_method == "json":
                 cached_result = await redis_client.get_json(cache_key)
             else:
                 cached_result = await redis_client.get_object(cache_key)
-            
+
             if cached_result is not None:
                 logger.debug(f"Cache hit for key: {cache_key}")
                 return cached_result
-            
+
             # Execute function and cache result
             result = await func(*args, **kwargs)
-            
+
             if serialize_method == "json":
                 await redis_client.set_json(cache_key, result, expire)
             else:
                 await redis_client.set_object(cache_key, result, expire)
-            
+
             logger.debug(f"Cache miss for key: {cache_key}")
             return result
         return wrapper
@@ -208,4 +208,4 @@ async def invalidate_cache_pattern(pattern: str) -> int:
     keys = await redis_client.keys(pattern)
     if keys:
         return await redis_client.delete(*keys)
-    return 0 
+    return 0

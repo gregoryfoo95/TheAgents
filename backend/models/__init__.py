@@ -5,4 +5,4 @@ __all__ = [
     "User",
     "Property",
     "PropertyFeature"
-] 
+]

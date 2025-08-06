@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requiredRole?: 'buyer' | 'seller' | 'lawyer'
+  requiredRole?: 'consumer' | 'agent' | 'lawyer'
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
@@ -26,6 +26,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Redirect to login if not authenticated
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // Redirect to role selection if user hasn't selected a role yet
+  if (!user.user_type) {
+    return <Navigate to="/select-role" state={{ from: location }} replace />
   }
 
   // Check role requirement if specified

@@ -4,20 +4,36 @@
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     phone VARCHAR(20),
-    user_type VARCHAR(20) NOT NULL CHECK (user_type IN ('buyer', 'seller', 'lawyer')),
+    user_type VARCHAR(20) CHECK (user_type IS NULL OR user_type IN ('consumer', 'agent', 'lawyer')),
+    oauth_provider VARCHAR(50) NOT NULL DEFAULT 'google',
+    oauth_id VARCHAR(255) NOT NULL,
+    profile_picture_url VARCHAR(500),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Properties table
+-- Addresses table (normalized)
+CREATE TABLE IF NOT EXISTS addresses (
+    id SERIAL PRIMARY KEY,
+    street_address VARCHAR(500) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(50) NOT NULL,
+    zip_code VARCHAR(10) NOT NULL,
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Properties table (normalized)
 CREATE TABLE IF NOT EXISTS properties (
     id SERIAL PRIMARY KEY,
     seller_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    address_id INTEGER REFERENCES addresses(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     property_type VARCHAR(50) NOT NULL,
@@ -26,16 +42,20 @@ CREATE TABLE IF NOT EXISTS properties (
     bedrooms INTEGER,
     bathrooms INTEGER,
     square_feet INTEGER,
-    address VARCHAR(500) NOT NULL,
-    city VARCHAR(100) NOT NULL,
-    state VARCHAR(50) NOT NULL,
-    zip_code VARCHAR(10) NOT NULL,
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'pending', 'sold', 'withdrawn')),
-    images TEXT[], -- Array of image URLs
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Property images table (normalized)
+CREATE TABLE IF NOT EXISTS property_images (
+    id SERIAL PRIMARY KEY,
+    property_id INTEGER REFERENCES properties(id) ON DELETE CASCADE,
+    image_url VARCHAR(500) NOT NULL,
+    alt_text VARCHAR(255),
+    is_primary BOOLEAN DEFAULT FALSE,
+    display_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Property features table
@@ -140,9 +160,12 @@ CREATE TABLE IF NOT EXISTS documents (
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_properties_status ON properties(status);
-CREATE INDEX IF NOT EXISTS idx_properties_city ON properties(city);
-CREATE INDEX IF NOT EXISTS idx_properties_price ON properties(price);
 CREATE INDEX IF NOT EXISTS idx_properties_seller_id ON properties(seller_id);
+CREATE INDEX IF NOT EXISTS idx_properties_address_id ON properties(address_id);
+CREATE INDEX IF NOT EXISTS idx_addresses_city ON addresses(city);
+CREATE INDEX IF NOT EXISTS idx_addresses_state ON addresses(state);
+CREATE INDEX IF NOT EXISTS idx_property_images_property_id ON property_images(property_id);
+CREATE INDEX IF NOT EXISTS idx_property_images_is_primary ON property_images(is_primary);
 CREATE INDEX IF NOT EXISTS idx_conversations_property_id ON conversations(property_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_buyer_id ON conversations(buyer_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
@@ -150,16 +173,36 @@ CREATE INDEX IF NOT EXISTS idx_bookings_property_id ON bookings(property_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(scheduled_date);
 
 -- Insert sample data for testing
-INSERT INTO users (email, password_hash, first_name, last_name, user_type) VALUES
-('seller@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/VoC9k8zB5PJl9P7e2', 'John', 'Seller', 'seller'),
-('buyer@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/VoC9k8zB5PJl9P7e2', 'Jane', 'Buyer', 'buyer'),
-('lawyer@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/VoC9k8zB5PJl9P7e2', 'Bob', 'Attorney', 'lawyer');
+INSERT INTO users (email, first_name, last_name, user_type, oauth_provider, oauth_id) VALUES
+('agent@example.com', 'John', 'Agent', 'agent', 'google', 'google-123'),
+('consumer@example.com', 'Jane', 'Consumer', 'consumer', 'google', 'google-456'),
+('lawyer@example.com', 'Bob', 'Attorney', 'lawyer', 'google', 'google-789');
 
--- Insert sample properties
-INSERT INTO properties (seller_id, title, description, property_type, price, bedrooms, bathrooms, square_feet, address, city, state, zip_code, status) VALUES
-(1, 'Beautiful Family Home', 'Spacious 3-bedroom house in quiet neighborhood with updated kitchen and hardwood floors throughout', 'house', 450000.00, 3, 2, 2200, '123 Main Street', 'Springfield', 'IL', '62701', 'active'),
-(1, 'Modern Downtown Condo', 'Luxury 2-bedroom condo with city views, granite countertops, and balcony', 'condo', 275000.00, 2, 2, 1100, '456 Oak Avenue', 'Springfield', 'IL', '62702', 'active'),
-(1, 'Charming Townhouse', 'End unit townhouse with private patio, 2-car garage, and finished basement', 'townhouse', 320000.00, 3, 2, 1800, '789 Pine Street', 'Springfield', 'IL', '62703', 'active'),
-(1, 'Cozy Starter Home', 'Perfect first home with updated appliances and fenced backyard', 'house', 185000.00, 2, 1, 950, '321 Elm Drive', 'Springfield', 'IL', '62704', 'active'),
-(1, 'Executive Estate', 'Magnificent 5-bedroom home on 2 acres with pool and guest house', 'house', 750000.00, 5, 4, 4500, '555 Mansion Lane', 'Springfield', 'IL', '62705', 'active'),
-(1, 'Urban Loft', 'Industrial-style loft in converted warehouse with exposed brick and high ceilings', 'apartment', 225000.00, 1, 1, 800, '888 Factory Road', 'Springfield', 'IL', '62706', 'active'); 
+-- Insert sample addresses
+INSERT INTO addresses (street_address, city, state, zip_code) VALUES
+('123 Main Street', 'Springfield', 'IL', '62701'),
+('456 Oak Avenue', 'Springfield', 'IL', '62702'),
+('789 Pine Street', 'Springfield', 'IL', '62703'),
+('321 Elm Drive', 'Springfield', 'IL', '62704'),
+('555 Mansion Lane', 'Springfield', 'IL', '62705'),
+('888 Factory Road', 'Springfield', 'IL', '62706');
+
+-- Insert sample properties with address references
+INSERT INTO properties (seller_id, address_id, title, description, property_type, price, bedrooms, bathrooms, square_feet, status) VALUES
+(1, 1, 'Beautiful Family Home', 'Spacious 3-bedroom house in quiet neighborhood with updated kitchen and hardwood floors throughout', 'house', 450000.00, 3, 2, 2200, 'active'),
+(1, 2, 'Modern Downtown Condo', 'Luxury 2-bedroom condo with city views, granite countertops, and balcony', 'condo', 275000.00, 2, 2, 1100, 'active'),
+(1, 3, 'Charming Townhouse', 'End unit townhouse with private patio, 2-car garage, and finished basement', 'townhouse', 320000.00, 3, 2, 1800, 'active'),
+(1, 4, 'Cozy Starter Home', 'Perfect first home with updated appliances and fenced backyard', 'house', 185000.00, 2, 1, 950, 'active'),
+(1, 5, 'Executive Estate', 'Magnificent 5-bedroom home on 2 acres with pool and guest house', 'house', 750000.00, 5, 4, 4500, 'active'),
+(1, 6, 'Urban Loft', 'Industrial-style loft in converted warehouse with exposed brick and high ceilings', 'apartment', 225000.00, 1, 1, 800, 'active');
+
+-- Insert sample property images
+INSERT INTO property_images (property_id, image_url, alt_text, is_primary, display_order) VALUES
+(1, '/uploads/properties/1/main.jpg', 'Beautiful Family Home - Main View', TRUE, 0),
+(1, '/uploads/properties/1/kitchen.jpg', 'Beautiful Family Home - Kitchen', FALSE, 1),
+(2, '/uploads/properties/2/main.jpg', 'Modern Downtown Condo - Main View', TRUE, 0),
+(2, '/uploads/properties/2/balcony.jpg', 'Modern Downtown Condo - Balcony View', FALSE, 1),
+(3, '/uploads/properties/3/main.jpg', 'Charming Townhouse - Main View', TRUE, 0),
+(4, '/uploads/properties/4/main.jpg', 'Cozy Starter Home - Main View', TRUE, 0),
+(5, '/uploads/properties/5/main.jpg', 'Executive Estate - Main View', TRUE, 0),
+(6, '/uploads/properties/6/main.jpg', 'Urban Loft - Main View', TRUE, 0);

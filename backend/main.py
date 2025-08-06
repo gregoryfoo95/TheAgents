@@ -15,11 +15,28 @@ from utilities.database import create_tables
 from utilities.redis import redis_client
 from controllers.user_controller import user_router
 from controllers.property_controller import property_router
+from controllers.auth_controller import auth_router
 from schemas.base import ErrorResponse
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging for Docker container
+log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(
+    level=getattr(logging, log_level),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Output to stdout/stderr
+    ],
+    force=True  # Override any existing configuration
+)
 logger = logging.getLogger(__name__)
+
+# Set specific logger levels
+logging.getLogger("uvicorn").setLevel(logging.INFO)
+logging.getLogger("sqlalchemy.engine").setLevel(logging.ERROR)  # Reduce SQL noise
+logging.getLogger("sqlalchemy.pool").setLevel(logging.ERROR)
+logging.getLogger("sqlalchemy.dialects").setLevel(logging.ERROR)
+
+logger.info(f"Logging configured at {log_level} level")
 
 # Get settings
 settings = get_settings()
@@ -27,7 +44,7 @@ settings = get_settings()
 
 class CustomJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder to handle datetime and decimal objects."""
-    
+
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.isoformat()
@@ -38,7 +55,7 @@ class CustomJSONEncoder(json.JSONEncoder):
 
 class CustomJSONResponse(JSONResponse):
     """Custom JSON response that handles datetime serialization."""
-    
+
     def render(self, content):
         return json.dumps(
             content,
@@ -55,28 +72,28 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info("Starting Property Marketplace API...")
-    
+
     try:
         # Create database tables
         await create_tables()
         logger.info("Database tables created successfully")
-        
+
         # Test Redis connection
         if await redis_client.ping():
             logger.info("Redis connection established")
         else:
             logger.warning("Redis connection failed")
-        
+
         # Create uploads directory
         os.makedirs("uploads", exist_ok=True)
         logger.info("Upload directory created")
-        
+
     except Exception as e:
         logger.error(f"Startup failed: {e}")
         raise
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Property Marketplace API...")
     try:
@@ -111,18 +128,19 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # Include routers
 app.include_router(user_router)
 app.include_router(property_router)
+app.include_router(auth_router)
 
 
 # Global exception handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
     """Handle HTTP exceptions with consistent error format."""
-    return JSONResponse(
+    return CustomJSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
             detail=exc.detail,
             error_code=f"HTTP_{exc.status_code}"
-        ).dict()
+        ).model_dump()
     )
 
 
@@ -130,12 +148,12 @@ async def http_exception_handler(request, exc: HTTPException):
 async def general_exception_handler(request, exc: Exception):
     """Handle general exceptions."""
     logger.error(f"Unhandled exception: {exc}")
-    return JSONResponse(
+    return CustomJSONResponse(
         status_code=500,
         content=ErrorResponse(
             detail="Internal server error",
             error_code="INTERNAL_ERROR"
-        ).dict()
+        ).model_dump()
     )
 
 
@@ -156,7 +174,7 @@ async def health_check():
     try:
         # Check Redis connection
         redis_status = await redis_client.ping()
-        
+
         return {
             "status": "healthy",
             "redis": "connected" if redis_status else "disconnected",
@@ -205,4 +223,4 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=settings.debug
-    ) 
+    )

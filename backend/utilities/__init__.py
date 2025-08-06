@@ -1,1 +1,1 @@
-# Core package for configuration and setup 
+# Core package for configuration and setup
