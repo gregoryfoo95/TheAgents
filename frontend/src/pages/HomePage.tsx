@@ -118,7 +118,7 @@ export const HomePage: React.FC = () => {
             </Button>
             <Button
               component={Link}
-              to="/register"
+              to="/login"
               variant="outlined"
               size="large"
               endIcon={<ArrowRightIcon />}
@@ -133,7 +133,7 @@ export const HomePage: React.FC = () => {
                 },
               }}
             >
-              Get Started
+              Sign In
             </Button>
           </Stack>
         </Container>
@@ -150,7 +150,7 @@ export const HomePage: React.FC = () => {
             gutterBottom
             sx={{ mb: 6 }}
           >
-            Why Choose DaAgents?
+            Why Choose Agent$?
           </Typography>
           <Grid container spacing={4}>
             {features.map((feature, index) => (
@@ -195,12 +195,12 @@ export const HomePage: React.FC = () => {
             </Typography>
             <Button
               component={Link}
-              to="/register"
+              to="/login"
               variant="contained"
               size="large"
               sx={{ mt: 2, px: 4, py: 1.5 }}
             >
-              Start Your Journey
+              Sign In to Start
             </Button>
           </Box>
         </Container>

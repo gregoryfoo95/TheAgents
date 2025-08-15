@@ -7,6 +7,7 @@ import { Layout } from './components/Layout'
 import { HomePage } from './pages/HomePage'
 import { PropertiesPage } from './pages/PropertiesPage'
 import { PropertyDetailPage } from './pages/PropertyDetailPage'
+import { StockPredictorPage } from './pages/StockPredictorPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
@@ -27,6 +28,7 @@ function App() {
           <Route index element={<HomePage />} />
           <Route path="properties" element={<PropertiesPage />} />
           <Route path="properties/:id" element={<PropertyDetailPage />} />
+          <Route path="stocks" element={<StockPredictorPage />} />
           <Route path="lawyers" element={<LawyersPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />

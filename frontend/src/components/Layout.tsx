@@ -34,6 +34,7 @@ import {
   Menu as MenuIcon,
   Logout as LogoutIcon,
   Person as PersonIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -68,6 +69,7 @@ export const Layout: React.FC = () => {
   const navigation = [
     { name: 'Home', href: '/', icon: HomeIcon },
     { name: 'Properties', href: '/properties', icon: SearchIcon },
+    { name: 'Stock Predictor', href: '/stocks', icon: TrendingUpIcon },
     { name: 'Lawyers', href: '/lawyers', icon: ScaleIcon },
   ]
 
@@ -88,7 +90,7 @@ export const Layout: React.FC = () => {
   const drawer = (
     <Box sx={{ width: 250 }}>
       <Typography variant="h6" sx={{ p: 2, fontWeight: 'bold', color: 'primary.main' }}>
-        DaAgents
+        Agent$
       </Typography>
       <Divider />
       <List>
@@ -147,11 +149,6 @@ export const Layout: React.FC = () => {
                 <ListItemText primary="Sign In" />
               </ListItemButton>
             </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton component={Link} to="/register" onClick={() => setMobileOpen(false)}>
-                <ListItemText primary="Sign Up" />
-              </ListItemButton>
-            </ListItem>
           </List>
         </>
       )}
@@ -186,7 +183,7 @@ export const Layout: React.FC = () => {
               mr: 4
             }}
           >
-            DaAgents
+            Agent$
           </Typography>
 
           {!isMobile && (
@@ -243,11 +240,8 @@ export const Layout: React.FC = () => {
                 </>
               ) : (
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button component={Link} to="/login" color="inherit">
+                  <Button component={Link} to="/login" variant="contained">
                     Sign In
-                  </Button>
-                  <Button component={Link} to="/register" variant="contained">
-                    Sign Up
                   </Button>
                 </Box>
               )}
@@ -348,7 +342,7 @@ export const Layout: React.FC = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Button
                   component={Link}
-                  to="/register"
+                  to="/login"
                   variant="text"
                   size="small"
                   sx={{ justifyContent: 'flex-start', p: 0 }}

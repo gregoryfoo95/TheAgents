@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
-import { propertiesAPI } from '../services/api'
+import { propertiesService } from '../services/api'
 import type { PropertyFilters, CreatePropertyData, UpdatePropertyData } from '../types'
 
 // Query keys
@@ -17,7 +17,7 @@ export const propertyKeys = {
 export const useProperties = (filters: PropertyFilters = {}, page: number = 1, size: number = 20) => {
   return useQuery({
     queryKey: [...propertyKeys.list(filters), page, size],
-    queryFn: () => propertiesAPI.getProperties(page, size, filters),
+    queryFn: () => propertiesService.getProperties(page, size, filters),
     placeholderData: (previousData) => previousData,
     staleTime: 2 * 60 * 1000, // 2 minutes
   })
@@ -26,7 +26,7 @@ export const useProperties = (filters: PropertyFilters = {}, page: number = 1, s
 export const useInfiniteProperties = (filters: PropertyFilters = {}, size: number = 20) => {
   return useInfiniteQuery({
     queryKey: [...propertyKeys.list(filters), 'infinite'],
-    queryFn: ({ pageParam = 1 }) => propertiesAPI.getProperties(pageParam, size, filters),
+    queryFn: ({ pageParam = 1 }) => propertiesService.getProperties(pageParam, size, filters),
     initialPageParam: 1,
     getNextPageParam: (lastPage, pages) => {
       const currentPage = pages.length
@@ -39,7 +39,7 @@ export const useInfiniteProperties = (filters: PropertyFilters = {}, size: numbe
 export const useProperty = (id: number) => {
   return useQuery({
     queryKey: propertyKeys.detail(id),
-    queryFn: () => propertiesAPI.getProperty(id),
+    queryFn: () => propertiesService.getProperty(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
@@ -48,7 +48,7 @@ export const useProperty = (id: number) => {
 export const useMyProperties = () => {
   return useQuery({
     queryKey: propertyKeys.myProperties(),
-    queryFn: propertiesAPI.getMyProperties,
+    queryFn: propertiesService.getMyProperties,
     staleTime: 2 * 60 * 1000,
   })
 }
@@ -57,7 +57,7 @@ export const useCreateProperty = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: (data: CreatePropertyData) => propertiesAPI.createProperty(data),
+    mutationFn: (data: CreatePropertyData) => propertiesService.createProperty(data),
     onSuccess: (newProperty) => {
       // Invalidate and refetch properties lists
       queryClient.invalidateQueries({ queryKey: propertyKeys.lists() })
@@ -80,7 +80,7 @@ export const useUpdateProperty = () => {
   
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdatePropertyData }) =>
-      propertiesAPI.updateProperty(id, data),
+      propertiesService.updateProperty(id, data),
     onSuccess: (updatedProperty) => {
       // Update the property in cache
       queryClient.setQueryData(propertyKeys.detail(updatedProperty.id), updatedProperty)
@@ -102,7 +102,7 @@ export const useDeleteProperty = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: propertiesAPI.deleteProperty,
+    mutationFn: propertiesService.deleteProperty,
     onSuccess: (_, deletedId) => {
       // Remove from cache
       queryClient.removeQueries({ queryKey: propertyKeys.detail(deletedId) })
@@ -125,7 +125,7 @@ export const useUploadPropertyImages = () => {
   
   return useMutation({
     mutationFn: ({ propertyId, files }: { propertyId: number; files: File[] }) =>
-      propertiesAPI.uploadImages(propertyId, files),
+      propertiesService.uploadImages(propertyId, files),
     onSuccess: (data, variables) => {
       // Invalidate property detail to refetch with new images
       queryClient.invalidateQueries({ queryKey: propertyKeys.detail(variables.propertyId) })

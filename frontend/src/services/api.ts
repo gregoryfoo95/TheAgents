@@ -1,82 +1,150 @@
 import axios from 'axios'
 import type {
-  User,
-  Property,
-  PropertyListResponse,
-  PropertyFilters,
-  CreatePropertyData,
-  UpdatePropertyData,
-  Conversation,
-  Message,
   Booking,
+  Conversation,
   CreateBookingData,
-  LawyerProfile,
-  AIValuation,
-  AIRecommendation,
-  OAuthTokens,
-  UserTypeSelectionData,
+  CreatePropertyData,
+  Message,
+  Property,
+  PropertyFilters,
+  PropertyListResponse,
+  UpdatePropertyData,
+  User,
 } from '../types'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_GATEWAY_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-// Create axios instance
+// Create axios instances for different services
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_GATEWAY_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Include cookies in requests
 })
 
-// HTTP-only cookies are automatically included in requests
-// No need to manually add Authorization header since backend uses cookies
+// Auth service instance (via API Gateway)
+const authAPI = axios.create({
+  baseURL: API_GATEWAY_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
 
-// Handle response errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // HTTP-only cookies will be cleared by logout endpoint
-      window.location.href = '/login'
+// Property service instance (via API Gateway)
+const propertyAPI = axios.create({
+  baseURL: API_GATEWAY_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// Stock service instance (via API Gateway) 
+const stockAPI = axios.create({
+  baseURL: API_GATEWAY_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// Token management - now using HTTP-only cookies
+let authToken: string | null = null
+
+// Add credentials for HTTP-only cookies
+const addCredentialsToRequest = (config: any) => {
+  // Include credentials to send HTTP-only cookies
+  config.withCredentials = true
+  return config
+}
+
+// Add interceptors to all instances
+[api, authAPI, propertyAPI, stockAPI].forEach(instance => {
+  instance.interceptors.request.use(addCredentialsToRequest)
+  
+  instance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        // Clear session and redirect to login
+        sessionStorage.clear()
+        authToken = null
+        window.location.href = '/login'
+      }
+      return Promise.reject(error)
     }
-    return Promise.reject(error)
-  }
-)
+  )
+})
 
-// Authentication
-export const authAPI = {
+// Helper function to clear auth token and storage
+export const clearAuthToken = () => {
+  authToken = null
+  
+  // Clear session storage
+  sessionStorage.clear()
+  
+  // Clear local storage
+  localStorage.clear()
+  
+}
+
+// Authentication API (OAuth-only)
+export const authService = {
+
   getCurrentUser: async (): Promise<User> => {
-    const response = await api.get('/api/auth/me')
+    const response = await authAPI.get('/auth/me')
     return response.data
   },
 
-  refreshToken: async (refreshToken: string): Promise<OAuthTokens> => {
-    const response = await api.post('/api/auth/refresh', { refresh_token: refreshToken })
-    return response.data
-  },
-
-  updateUserType: async (data: UserTypeSelectionData): Promise<User> => {
-    const response = await api.put('/api/auth/user-type', data)
-    return response.data
-  },
 
   logout: async (): Promise<void> => {
-    await api.post('/api/auth/logout')
+    try {
+      await authAPI.post('/auth/logout')
+    } catch (error) {
+      // Continue with logout even if API fails
+      console.warn('Logout API call failed:', error)
+    }
+    clearAuthToken()
   },
 
+
+  // OAuth methods
   getOAuthProviders: async (): Promise<{ providers: string[] }> => {
-    const response = await api.get('/api/auth/providers')
+    const response = await authAPI.get('/auth/providers')
     return response.data
   },
 
-  updateProfile: async (data: Partial<User>): Promise<User> => {
-    const response = await api.put('/api/users/me', data)
+  startGoogleOAuth: (redirectUri?: string): string => {
+    const params = new URLSearchParams()
+    if (redirectUri) {
+      params.append('redirect_uri', redirectUri)
+    }
+    return `${API_GATEWAY_URL}/auth/google?${params.toString()}`
+  },
+
+  // Initiate OAuth login by redirecting to backend
+  loginWithGoogle: (redirectUri?: string): void => {
+    const url = authService.startGoogleOAuth(redirectUri)
+    window.location.href = url
+  },
+
+  updateUserType: async (data: { user_type: string; phone?: string }): Promise<User> => {
+    const response = await authAPI.put('/auth/user-type', data)
+    return response.data
+  },
+
+  getUserRoles: async (): Promise<{
+    roles: Array<{
+      value: string
+      label: string
+      description: string
+    }>
+  }> => {
+    const response = await authAPI.get('/auth/roles')
     return response.data
   },
 }
 
-// Properties
-export const propertiesAPI = {
+// Properties API (via API Gateway)
+export const propertiesService = {
   getProperties: async (
     page: number = 1,
     size: number = 20,
@@ -92,34 +160,34 @@ export const propertiesAPI = {
       }
     })
 
-    const response = await api.get(`/api/properties/?${params.toString()}`)
+    const response = await propertyAPI.get(`/properties/?${params.toString()}`)
     return response.data
   },
 
   getProperty: async (id: number): Promise<Property> => {
-    const response = await api.get(`/api/properties/${id}`)
+    const response = await propertyAPI.get(`/properties/${id}`)
     return response.data
   },
 
   createProperty: async (data: CreatePropertyData): Promise<Property> => {
-    const response = await api.post('/api/properties/', data)
+    const response = await propertyAPI.post('/properties/', data)
     return response.data
   },
 
   updateProperty: async (id: number, data: UpdatePropertyData): Promise<Property> => {
-    const response = await api.put(`/api/properties/${id}`, data)
+    const response = await propertyAPI.put(`/properties/${id}`, data)
     return response.data
   },
 
   deleteProperty: async (id: number): Promise<void> => {
-    await api.delete(`/api/properties/${id}`)
+    await propertyAPI.delete(`/properties/${id}`)
   },
 
   uploadImages: async (propertyId: number, files: File[]): Promise<{ uploaded_images: string[] }> => {
     const formData = new FormData()
     files.forEach(file => formData.append('files', file))
     
-    const response = await api.post(`/api/properties/${propertyId}/images`, formData, {
+    const response = await propertyAPI.post(`/properties/${propertyId}/images`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -128,204 +196,248 @@ export const propertiesAPI = {
   },
 
   getMyProperties: async (): Promise<Property[]> => {
-    const response = await api.get('/api/properties/my/listings')
+    const response = await propertyAPI.get('/properties/my/listings')
     return response.data
   },
 }
 
-// Chat
-export const chatAPI = {
-  getConversations: async (): Promise<Conversation[]> => {
-    const response = await api.get('/api/chat/conversations/')
-    return response.data
-  },
-
-  getConversation: async (id: number): Promise<Conversation> => {
-    const response = await api.get(`/api/chat/conversations/${id}`)
-    return response.data
-  },
-
-  createConversation: async (data: {
-    property_id: number
-    buyer_id: number
-    seller_id: number
-    lawyer_id?: number
-  }): Promise<Conversation> => {
-    const response = await api.post('/api/chat/conversations/', data)
-    return response.data
-  },
-
-  sendMessage: async (data: {
-    conversation_id: number
-    message_text?: string
-    message_type?: 'text' | 'document' | 'image'
-    file_name?: string
-    file_type?: string
-  }): Promise<Message> => {
-    const response = await api.post('/api/chat/messages/', data)
-    return response.data
-  },
-
-  uploadMessageFile: async (messageId: number, file: File): Promise<{ file_url: string; file_name: string }> => {
-    const formData = new FormData()
-    formData.append('file', file)
-    
-    const response = await api.post(`/api/chat/messages/${messageId}/file`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    return response.data
-  },
-
-  addLawyerToConversation: async (conversationId: number, lawyerId: number): Promise<{ message: string }> => {
-    const response = await api.put(`/api/chat/conversations/${conversationId}/add-lawyer`, { lawyer_id: lawyerId })
-    return response.data
-  },
-}
-
-// Bookings
+// Bookings API (via Property Service through API Gateway)
 export const bookingsAPI = {
   getMyBookings: async (status?: string): Promise<Booking[]> => {
-    const params = status ? `?status_filter=${status}` : ''
-    const response = await api.get(`/api/bookings/${params}`)
-    return response.data
+    const params = new URLSearchParams()
+    if (status) params.append('status_filter', status)
+    const response = await propertyAPI.get(`/properties/bookings/?${params.toString()}`)
+    const items = response.data as any[]
+    // Map service shape to frontend Booking type where possible
+    return items.map((b: any) => ({
+      id: b.id,
+      property_id: b.property_id,
+      buyer_id: b.tenant_id,
+      seller_id: 0,
+      scheduled_date: b.start_date,
+      scheduled_time: new Date(b.start_date).toISOString().slice(11,16),
+      duration_minutes: b.end_date ? Math.max(0, Math.floor((new Date(b.end_date).getTime() - new Date(b.start_date).getTime())/60000)) : 60,
+      status: b.status,
+      notes: b.notes,
+      created_at: b.created_at,
+      updated_at: b.updated_at,
+      // Placeholders for nested objects not yet available in microservice
+      property: {} as any,
+      buyer: {} as any,
+      seller: {} as any,
+    })) as Booking[]
   },
 
   getBooking: async (id: number): Promise<Booking> => {
-    const response = await api.get(`/api/bookings/${id}`)
-    return response.data
+    const { data } = await propertyAPI.get(`/properties/bookings/${id}`)
+    const b: any = data
+    return {
+      id: b.id,
+      property_id: b.property_id,
+      buyer_id: b.tenant_id,
+      seller_id: 0,
+      scheduled_date: b.start_date,
+      scheduled_time: new Date(b.start_date).toISOString().slice(11,16),
+      duration_minutes: b.end_date ? Math.max(0, Math.floor((new Date(b.end_date).getTime() - new Date(b.start_date).getTime())/60000)) : 60,
+      status: b.status,
+      notes: b.notes,
+      created_at: b.created_at,
+      updated_at: b.updated_at,
+      property: {} as any,
+      buyer: {} as any,
+      seller: {} as any,
+    } as Booking
+  },
+
+  getAvailableSlots: async (propertyId: number, date: string): Promise<string[]> => {
+    const { data } = await propertyAPI.get(`/properties/bookings/available-slots`, {
+      params: { property_id: propertyId, date },
+    })
+    return data
   },
 
   createBooking: async (data: CreateBookingData): Promise<Booking> => {
-    const response = await api.post('/api/bookings/', data)
-    return response.data
+    // Translate CreateBookingData -> service payload
+    const payload: any = {
+      property_id: data.property_id,
+      start_date: data.scheduled_date,
+      end_date: data.scheduled_date,
+      notes: data.notes,
+    }
+    const { data: created } = await propertyAPI.post(`/properties/bookings/`, payload)
+    return bookingsAPI.getBooking(created.id)
   },
 
-  updateBooking: async (id: number, data: Partial<CreateBookingData> & { status?: string }): Promise<Booking> => {
-    const response = await api.put(`/api/bookings/${id}`, data)
-    return response.data
+  updateBooking: async (
+    id: number,
+    data: Partial<CreateBookingData> & { status?: string }
+  ): Promise<Booking> => {
+    const payload: any = {}
+    if (data.status) payload.status = data.status
+    if (data.scheduled_date) {
+      payload.start_date = data.scheduled_date
+      payload.end_date = data.scheduled_date
+    }
+    if (data.notes !== undefined) payload.notes = data.notes
+    await propertyAPI.put(`/properties/bookings/${id}`, payload)
+    return bookingsAPI.getBooking(id)
   },
 
   cancelBooking: async (id: number): Promise<void> => {
-    await api.delete(`/api/bookings/${id}`)
-  },
-
-  getAvailableSlots: async (propertyId: number, date: string): Promise<{
-    date: string
-    available_slots: { time: string; available: boolean }[]
-  }> => {
-    const response = await api.get(`/api/bookings/property/${propertyId}/available-slots?date=${date}`)
-    return response.data
+    await propertyAPI.post(`/properties/bookings/${id}/cancel`)
   },
 }
 
-// Lawyers
-export const lawyersAPI = {
-  getLawyers: async (filters: {
-    specialization?: string
-    min_experience?: number
-    max_rate?: number
-    verified_only?: boolean
-  } = {}): Promise<LawyerProfile[]> => {
-    const params = new URLSearchParams()
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        params.append(key, value.toString())
-      }
-    })
-
-    const response = await api.get(`/api/lawyers/?${params.toString()}`)
-    return response.data
-  },
-
-  getLawyer: async (id: number): Promise<LawyerProfile> => {
-    const response = await api.get(`/api/lawyers/${id}`)
-    return response.data
-  },
-
-  createProfile: async (data: Omit<LawyerProfile, 'id' | 'user_id' | 'is_verified' | 'created_at' | 'user'>): Promise<LawyerProfile> => {
-    const response = await api.post('/api/lawyers/profile', data)
-    return response.data
-  },
-
-  updateProfile: async (data: Partial<LawyerProfile>): Promise<LawyerProfile> => {
-    const response = await api.put('/api/lawyers/profile/me', data)
-    return response.data
-  },
-
-  getMyProfile: async (): Promise<LawyerProfile> => {
-    const response = await api.get('/api/lawyers/profile/me')
-    return response.data
-  },
-
-  getSpecializations: async (): Promise<{ specializations: string[] }> => {
-    const response = await api.get('/api/lawyers/specializations/list')
-    return response.data
-  },
-}
-
-// AI Services
+// Minimal AI API placeholder; replace when AI service is implemented
 export const aiAPI = {
-  valuateProperty: async (propertyId: number): Promise<AIValuation> => {
-    const response = await api.post(`/api/ai/valuate/${propertyId}`)
+  getPropertyValuations: async (propertyId: number): Promise<any[]> => {
+    throw new Error('AI service not implemented yet')
+  },
+  getSavedRecommendations: async (propertyId: number): Promise<any[]> => {
+    throw new Error('AI service not implemented yet')
+  },
+  getMarketTrends: async (zipCode: string): Promise<any> => {
+    throw new Error('AI service not implemented yet')
+  },
+  valuateProperty: async (propertyId: number): Promise<any> => {
+    throw new Error('AI service not implemented yet')
+  },
+  getImprovementRecommendations: async (propertyId: number): Promise<any[]> => {
+    throw new Error('AI service not implemented yet')
+  },
+  analyzeImage: async (propertyId: number, file: File): Promise<any> => {
+    throw new Error('AI service not implemented yet')
+  },
+}
+
+// Minimal Lawyers API placeholder; replace when lawyers service is implemented
+export const lawyersAPI = {
+  getLawyers: async (filters: any = {}): Promise<any[]> => {
+    throw new Error('Lawyers service not implemented yet')
+  },
+  getLawyer: async (id: number): Promise<any> => {
+    throw new Error('Lawyers service not implemented yet')
+  },
+  getMyProfile: async (): Promise<any> => {
+    throw new Error('Lawyers service not implemented yet')
+  },
+  getSpecializations: async (): Promise<string[]> => {
+    throw new Error('Lawyers service not implemented yet')
+  },
+  createProfile: async (data: any): Promise<any> => {
+    throw new Error('Lawyers service not implemented yet')
+  },
+  updateProfile: async (id: number, data: any): Promise<any> => {
+    throw new Error('Lawyers service not implemented yet')
+  },
+}
+
+// Minimal Chat API placeholder; replace when chat service is implemented
+export const chatAPI = {
+  getConversations: async (): Promise<Conversation[]> => {
+    return []
+  },
+  getConversation: async (_id: number): Promise<Conversation> => {
+    throw new Error('Chat service not implemented yet')
+  },
+  createConversation: async (): Promise<Conversation> => {
+    throw new Error('Chat service not implemented yet')
+  },
+  sendMessage: async (data: any): Promise<Message> => {
+    throw new Error('Chat service not implemented yet')
+  },
+  uploadMessageFile: async (messageId: number, file: File): Promise<{ file_url: string; file_name: string }> => {
+    throw new Error('Chat service not implemented yet')
+  },
+  addLawyerToConversation: async (conversationId: number, lawyerId: number): Promise<void> => {
+    throw new Error('Chat service not implemented yet')
+  },
+}
+
+// Stock & Portfolio API (via API Gateway)
+export const stockService = {
+  // Portfolio management
+  getPortfolios: async (): Promise<any[]> => {
+    const response = await stockAPI.get('/stock/portfolios')
     return response.data
   },
 
-  getPropertyValuations: async (propertyId: number): Promise<AIValuation[]> => {
-    const response = await api.get(`/api/ai/valuations/${propertyId}`)
+  createPortfolio: async (data: {
+    name: string
+    description?: string
+    stocks: { symbol: string; allocation_percentage: number }[]
+  }): Promise<any> => {
+    const response = await stockAPI.post('/stock/portfolios', data)
     return response.data
   },
 
-  getImprovementRecommendations: async (propertyId: number): Promise<AIRecommendation[]> => {
-    const response = await api.post(`/api/ai/recommendations/${propertyId}`)
+  getPortfolio: async (id: number): Promise<any> => {
+    const response = await stockAPI.get(`/stock/portfolios/${id}`)
     return response.data
   },
 
-  getSavedRecommendations: async (propertyId: number): Promise<AIRecommendation[]> => {
-    const response = await api.get(`/api/ai/recommendations/${propertyId}`)
+  updatePortfolio: async (id: number, data: any): Promise<any> => {
+    const response = await stockAPI.put(`/stock/portfolios/${id}`, data)
     return response.data
   },
 
-  analyzeImage: async (propertyId: number, file: File): Promise<{
-    image_analysis: {
-      room_type: string
-      condition: string
-      style: string
-      identified_issues: string[]
-    }
-    recommendations: {
-      type: string
-      description: string
-      estimated_cost: number
-      priority: string
-    }[]
-  }> => {
-    const formData = new FormData()
-    formData.append('image', file)
-    
-    const response = await api.post(`/api/ai/analyze-image/${propertyId}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+  deletePortfolio: async (id: number): Promise<void> => {
+    await stockAPI.delete(`/stock/portfolios/${id}`)
+  },
+
+  // Portfolio analysis
+  analyzePortfolio: async (portfolioId: number, timeFrequency: string = '1M'): Promise<any> => {
+    const response = await stockAPI.post('/stock/analyze-portfolio', {
+      portfolio_id: portfolioId,
+      time_frequency: timeFrequency
     })
     return response.data
   },
 
-  getMarketTrends: async (zipCode: string): Promise<{
-    zip_code: string
-    median_price: number
-    price_change_6_months: string
-    price_change_1_year: string
-    days_on_market: number
-    inventory_level: string
-    market_temperature: string
-    price_per_sqft: number
-    forecasted_appreciation: string
-  }> => {
-    const response = await api.get(`/api/ai/market-trends/${zipCode}`)
+  // Single stock analysis
+  analyzeStock: async (data: {
+    symbol: string
+    time_frequency?: string
+    user_context?: string
+  }): Promise<any> => {
+    const response = await stockAPI.post('/stock/analyze', data)
+    return response.data
+  },
+
+  // Analysis results
+  getAnalysisSession: async (sessionId: string): Promise<any> => {
+    const response = await stockAPI.get(`/stock/sessions/${sessionId}`)
+    return response.data
+  },
+
+  getUserSessions: async (limit: number = 20, offset: number = 0): Promise<any[]> => {
+    const response = await stockAPI.get(`/stock/users/sessions?limit=${limit}&offset=${offset}`)
+    return response.data
+  },
+
+  // Service health
+  getHealth: async (): Promise<{ status: string; service: string; version: string }> => {
+    const response = await stockAPI.get('/stock/health')
+    return response.data
+  },
+
+  // Agent information
+  getAgentsDescription: async (): Promise<any> => {
+    const response = await stockAPI.get('/stock/agents/description')
+    return response.data
+  },
+
+  // Get supported stock symbols
+  getSupportedSymbols: async (): Promise<any> => {
+    const response = await stockAPI.get('/stock/symbols')
+    return response.data
+  },
+
+  // Get available time frequencies
+  getTimeFrequencies: async (): Promise<any> => {
+    const response = await stockAPI.get('/stock/time-frequencies')
     return response.data
   },
 }
 
-export default api 
+export default api

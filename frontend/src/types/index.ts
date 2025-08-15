@@ -3,14 +3,15 @@ export interface User {
   email: string
   first_name: string
   last_name: string
-  phone?: string
-  user_type: 'consumer' | 'agent' | 'lawyer' | null
-  oauth_provider: string
-  oauth_id: string
+  display_name?: string
   profile_picture_url?: string
+  user_type?: 'consumer' | 'agent' | 'lawyer'
   is_active: boolean
+  is_verified: boolean
+  email_verified: boolean
   created_at: string
-  updated_at: string
+  updated_at?: string
+  last_login?: string
 }
 
 export interface Property {
@@ -154,10 +155,9 @@ export interface OAuthTokens {
 
 export interface AuthContextType {
   user: User | null
-  tokens: OAuthTokens | null
   loginWithGoogle: () => void
-  handleOAuthCallback: () => Promise<void>
   logout: () => void
+  handleOAuthCallback: () => Promise<void>
   isLoading: boolean
   isAuthenticated: boolean
 }

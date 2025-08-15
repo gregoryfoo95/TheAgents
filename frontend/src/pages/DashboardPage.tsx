@@ -1,30 +1,28 @@
+import {
+    Event as CalendarIcon,
+    Home as HomeIcon,
+    Message as MessageIcon,
+    Add as PlusIcon,
+    TrendingUp,
+    People as UsersIcon,
+} from '@mui/icons-material'
+import {
+    Avatar,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    Container,
+    Grid,
+    Skeleton,
+    Stack,
+    Typography,
+} from '@mui/material'
 import React from 'react'
 import { Link } from 'react-router-dom'
-import {
-  Container,
-  Typography,
-  Grid,
-  Card,
-  CardContent,
-  Box,
-  Button,
-  Skeleton,
-  Avatar,
-  Chip,
-  Stack,
-} from '@mui/material'
-import {
-  Home as HomeIcon,
-  Message as MessageIcon,
-  Event as CalendarIcon,
-  Add as PlusIcon,
-  TrendingUp,
-  People as UsersIcon,
-} from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
-import { useMyProperties } from '../hooks/useProperties'
-import { useMyBookings } from '../hooks/useBookings'
-import { useConversations } from '../hooks/useChat'
+import { useConversations, useMyBookings, useMyProperties } from '../hooks'
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth()

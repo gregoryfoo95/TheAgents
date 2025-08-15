@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
-import { authAPI } from '../services/api'
-import type { OAuthTokens, UserTypeSelectionData } from '../types'
-import Cookies from 'js-cookie'
+import { authService } from '../services/api'
+import type { User, UserTypeSelectionData } from '../types'
 
 // Query keys
 export const authKeys = {
@@ -14,84 +13,18 @@ export const authKeys = {
 export const useCurrentUser = () => {
   return useQuery({
     queryKey: authKeys.currentUser(),
-    queryFn: authAPI.getCurrentUser,
-    enabled: !!Cookies.get('access_token'),
+    queryFn: authService.getCurrentUser,
+    enabled: !!sessionStorage.getItem('isAuthenticated'),
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
 
-export const useOAuthLogin = () => {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async (tokens: OAuthTokens) => {
-      // Store tokens in cookies
-      Cookies.set('access_token', tokens.access_token, { expires: 1/24 }) // 1 hour
-      if (tokens.refresh_token) {
-        Cookies.set('refresh_token', tokens.refresh_token, { expires: 30 }) // 30 days
-      }
-      
-      // Fetch user data and cache it
-      const userData = await authAPI.getCurrentUser()
-      queryClient.setQueryData(authKeys.currentUser(), userData)
-      
-      return userData
-    },
-    onSuccess: () => {
-      toast.success('Successfully logged in!')
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.detail || 'OAuth login failed'
-      toast.error(message)
-    },
-  })
-}
+// Removed local login - OAuth only
 
-export const useUpdateUserType = () => {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: (data: UserTypeSelectionData) => authAPI.updateUserType(data),
-    onSuccess: (updatedUser) => {
-      // Update cached user data
-      queryClient.setQueryData(authKeys.currentUser(), updatedUser)
-      toast.success('User type updated successfully!')
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.detail || 'User type update failed'
-      toast.error(message)
-    },
-  })
-}
+// Removed local registration - OAuth only
 
-export const useUpdateProfile = () => {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: authAPI.updateProfile,
-    onSuccess: (updatedUser) => {
-      // Update cached user data
-      queryClient.setQueryData(authKeys.currentUser(), updatedUser)
-      localStorage.setItem('user', JSON.stringify(updatedUser))
-      toast.success('Profile updated successfully!')
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.detail || 'Profile update failed'
-      toast.error(message)
-    },
-  })
-}
-
-export const useRefreshToken = () => {
-  return useMutation({
-    mutationFn: (refreshToken: string) => authAPI.refreshToken(refreshToken),
-    onError: (error: any) => {
-      const message = error.response?.data?.detail || 'Token refresh failed'
-      toast.error(message)
-    },
-  })
-}
+// Removed refresh token - using HTTP-only cookies
 
 export const useLogout = () => {
   const queryClient = useQueryClient()
@@ -99,24 +32,47 @@ export const useLogout = () => {
   return useMutation({
     mutationFn: async () => {
       try {
-        // Call logout endpoint if token exists
-        const accessToken = Cookies.get('access_token')
-        if (accessToken) {
-          await authAPI.logout()
+        // Call logout endpoint if authenticated
+        const isAuthenticated = sessionStorage.getItem('isAuthenticated')
+        if (isAuthenticated) {
+          await authService.logout()
         }
       } catch (error) {
         // Continue with logout even if API call fails
         console.error('Logout API call failed:', error)
       }
       
-      // Clear cookies
-      Cookies.remove('access_token')
-      Cookies.remove('refresh_token')
+      // Clear session storage
+      sessionStorage.clear()
+      
+      // Clear local storage
+      localStorage.clear()
       
       // Clear all cached data
       queryClient.clear()
+      
+      // Note: HTTP-only cookies are cleared by the backend logout endpoint
       
       toast.success('Successfully logged out')
     },
   })
 } 
+
+export const useUpdateUserType = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (data: UserTypeSelectionData) => authService.updateUserType({
+      user_type: data.user_type,
+      phone: data.phone,
+    }),
+    onSuccess: (updatedUser: User) => {
+      queryClient.setQueryData(authKeys.currentUser(), updatedUser)
+      toast.success('Profile updated!')
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.detail || 'Failed to update profile'
+      toast.error(message)
+    },
+  })
+}

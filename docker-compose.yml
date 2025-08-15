@@ -1,119 +1,269 @@
+networks:
+  microservices-network:
+    driver: bridge
+
+volumes:
+  postgres_auth_data:
+  postgres_property_data:
+  postgres_stock_data:
+  redis_data:
+
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15
-    container_name: the_agents_db
+  # ===== DATABASES =====
+  postgres-auth:
+    image: postgres:15-alpine
+    container_name: microservice-postgres-auth
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+    ports:
+      - "5431:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-property:
+    image: postgres:15-alpine
+    container_name: microservice-postgres-property
+    environment:
+      POSTGRES_DB: property_db
+      POSTGRES_USER: property_user
+      POSTGRES_PASSWORD: property_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_property_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U property_user -d property_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-stock:
+    image: postgres:15-alpine
+    container_name: microservice-postgres-stock
+    environment:
+      POSTGRES_DB: stock_ai_db
+      POSTGRES_USER: stock_user
+      POSTGRES_PASSWORD: stock_password
     ports:
       - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_stock_data:/var/lib/postgresql/data
     networks:
-      - property_network
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stock_user -d stock_ai_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Redis Cache
+  # ===== REDIS =====
   redis:
     image: redis:7-alpine
-    container_name: the_agents_redis
+    container_name: microservice-redis
     ports:
       - "6379:6379"
-    networks:
-      - property_network
-
-  # pgAdmin Database Management
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: the_agents_pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-      PGADMIN_CONFIG_SERVER_MODE: ${PGADMIN_CONFIG_SERVER_MODE:-False}
-    ports:
-      - "5050:80"
     volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      - postgres
+      - redis_data:/data
     networks:
-      - property_network
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # FastAPI Backend
-  backend:
+  # ===== MICROSERVICES =====
+  auth-service:
     build:
-      context: ./backend
+      context: ./auth-service
       dockerfile: Dockerfile
-    container_name: the_agents_backend
+    container_name: microservice-auth
+    ports:
+      - "8001:8001"
+    environment:
+      - AUTH_DATABASE_URL=postgresql://auth_user:auth_password@postgres-auth:5432/auth_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-super-secret-jwt-key-change-in-production}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - OAUTH_REDIRECT_URI=${OAUTH_REDIRECT_URI:-http://localhost:8001/auth/callback/google}
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - PYTHONPATH=/app
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    volumes:
+      - ./auth-service:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+
+  property-service:
+    build:
+      context: ./property-service
+      dockerfile: Dockerfile
+    container_name: microservice-property
+    ports:
+      - "8002:8002"
+    environment:
+      - PROPERTY_DATABASE_URL=postgresql://property_user:property_password@postgres-property:5432/property_db
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - PYTHONPATH=/app
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      postgres-property:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    volumes:
+      - ./property-service:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+      - ./property-service/uploads:/app/uploads
+
+  stock-ai-service:
+    build:
+      context: ./stock-ai-service
+      dockerfile: Dockerfile
+    container_name: microservice-stock-ai
+    ports:
+      - "8003:8002"
+    environment:
+      - STOCK_DATABASE_URL=postgresql://stock_user:stock_password@postgres-stock:5432/stock_ai_db
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - API_HOST=0.0.0.0
+      - API_PORT=8002
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - POSTGRES_USER=stock_user
+      - POSTGRES_PASSWORD=stock_password
+      - POSTGRES_DB=stock_ai_db
+      - POSTGRES_HOST=postgres-stock
+      - POSTGRES_PORT=5432
+      - LLM_MODEL=gpt-3.5-turbo
+      - LLM_TEMPERATURE=0.7
+      - YAHOO_FINANCE_API=https://query1.finance.yahoo.com
+      - ANALYSIS_RATE_LIMIT=100
+      - API_TIMEOUT=30
+      - REDIS_URL=redis://redis:6379
+      - CACHE_TTL=3600
+      - PYTHONPATH=/app
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      postgres-stock:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    volumes:
+      - ./stock-ai-service:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+
+  # ===== API GATEWAY =====
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: microservice-api-gateway
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      SECRET_KEY: ${SECRET_KEY}
-      PYTHONPATH: /app
-      WATCHFILES_FORCE_POLLING: true
-      PYTHONUNBUFFERED: 1
-      LOG_LEVEL: DEBUG
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - PROPERTY_SERVICE_URL=http://property-service:8002
+      - STOCK_SERVICE_URL=http://stock-ai-service:8002
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - PYTHONPATH=/app
+      - PYTHONDONTWRITEBYTECODE=1
     depends_on:
-      - postgres
+      - auth-service
+      - property-service
+      - stock-ai-service
       - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
     volumes:
-      - ./backend:/app
-      - uploaded_files:/app/uploads
-      # Exclude certain directories from being watched
+      - ./api-gateway:/app
       - /app/__pycache__
       - /app/.pytest_cache
-    networks:
-      - property_network
-    develop:
-      watch:
-        - action: sync
-          path: ./backend
-          target: /app
-          ignore:
-            - __pycache__/
-            - .git/
-            - .pytest_cache/
 
-  # React Frontend
+  # ===== FRONTEND =====
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: the_agents_frontend
+    container_name: microservice-frontend
     ports:
       - "3000:3000"
     environment:
-      VITE_API_URL: ${VITE_API_URL}
-      CHOKIDAR_USEPOLLING: true
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_AUTH_SERVICE_URL=http://localhost:8001
+      - REACT_APP_PROPERTY_SERVICE_URL=http://localhost:8002
+      - REACT_APP_STOCK_SERVICE_URL=http://localhost:8003
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    depends_on:
+      - api-gateway
+    networks:
+      - microservices-network
+    restart: unless-stopped
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.next
       - /app/dist
+
+  # ===== ADMIN TOOLS =====
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: microservice-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@theagents.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
     depends_on:
-      - backend
+      - postgres-auth
+      - postgres-property
+      - postgres-stock
     networks:
-      - property_network
-    develop:
-      watch:
-        - action: sync
-          path: ./frontend
-          target: /app
-          ignore:
-            - node_modules/
-            - .git/
-            - dist/
-            - .next/
-
-volumes:
-  postgres_data:
-  uploaded_files:
-  pgadmin_data:
-
-networks:
-  property_network:
-    driver: bridge 
+      - microservices-network
+    restart: unless-stopped

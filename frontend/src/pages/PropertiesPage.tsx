@@ -1,43 +1,43 @@
+import {
+    Bathtub as BathtubIcon,
+    Bed as BedIcon,
+    ExpandLess as ExpandLessIcon,
+    ExpandMore as ExpandMoreIcon,
+    FavoriteBorder as FavoriteBorderIcon,
+    Favorite as FavoriteIcon,
+    FilterList as FilterIcon,
+    ViewModule as GridViewIcon,
+    ViewList as ListViewIcon,
+    LocationOn as LocationIcon,
+    Search as SearchIcon,
+    SquareFoot as SquareFootIcon,
+} from '@mui/icons-material'
+import {
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CardMedia,
+    Chip,
+    Collapse,
+    Container,
+    Fab,
+    FormControl,
+    Grid,
+    IconButton,
+    InputAdornment,
+    InputLabel,
+    MenuItem,
+    Paper,
+    Select,
+    Skeleton,
+    TextField,
+    Typography,
+} from '@mui/material'
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  Container,
-  Typography,
-  Box,
-  Grid,
-  Card,
-  CardContent,
-  CardMedia,
-  Button,
-  IconButton,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Chip,
-  Skeleton,
-  Alert,
-  Paper,
-  Collapse,
-  InputAdornment,
-  Fab,
-} from '@mui/material'
-import {
-  Search as SearchIcon,
-  FilterList as FilterIcon,
-  LocationOn as LocationIcon,
-  Bed as BedIcon,
-  Bathtub as BathtubIcon,
-  SquareFoot as SquareFootIcon,
-  Favorite as FavoriteIcon,
-  FavoriteBorder as FavoriteBorderIcon,
-  ViewModule as GridViewIcon,
-  ViewList as ListViewIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-} from '@mui/icons-material'
-import { useInfiniteProperties } from '../hooks/useProperties'
+import { useInfiniteProperties } from '../hooks'
 import type { PropertyFilters } from '../types'
 
 export const PropertiesPage: React.FC = () => {
