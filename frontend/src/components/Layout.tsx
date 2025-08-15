@@ -89,7 +89,17 @@ export const Layout: React.FC = () => {
 
   const drawer = (
     <Box sx={{ width: 250 }}>
-      <Typography variant="h6" sx={{ p: 2, fontWeight: 'bold', color: 'primary.main' }}>
+      <Typography 
+        variant="h6" 
+        sx={{ 
+          p: 2, 
+          fontWeight: '800',
+          background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}
+      >
         Agent$
       </Typography>
       <Divider />
@@ -157,7 +167,16 @@ export const Layout: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="static" color="default" elevation={1}>
+      <AppBar 
+        position="static" 
+        elevation={0}
+        sx={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(99, 102, 241, 0.1)',
+          color: '#1e293b',
+        }}
+      >
         <Toolbar>
           {isMobile && (
             <IconButton
@@ -177,10 +196,14 @@ export const Layout: React.FC = () => {
             to="/"
             sx={{
               flexGrow: isMobile ? 1 : 0,
-              fontWeight: 'bold',
-              color: 'primary.main',
+              fontWeight: '800',
+              background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
               textDecoration: 'none',
-              mr: 4
+              mr: 4,
+              fontSize: '1.5rem',
             }}
           >
             Agent$
