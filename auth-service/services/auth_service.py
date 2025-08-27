@@ -228,8 +228,10 @@ class AuthService:
         
         # Create JWT tokens
         access_token = jwt_service.create_access_token(user_data)
-        refresh_token = jwt_service.create_refresh_token(user.id)
+        refresh_token = jwt_service.create_refresh_token(user_data["id"])
         
+        logger.info(f"Creating session check access token for user {access_token}")
+        logger.info(f"Creating session check refresh token for user {refresh_token}")
         # Store session in Redis
         session_data = {
             "user_id": user.id,

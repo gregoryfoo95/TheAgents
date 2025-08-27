@@ -123,81 +123,63 @@ async def google_oauth_callback(
             'refresh_token': session_data['refresh_token'],
             'token_type': session_data['token_type']
         }
+        
+        logger.info(f"✅ OAuth Session created for user {user.email}")
+        logger.info(f"🔑 Access token: {jwt_tokens['access_token'][:50]}...")
+        logger.info(f"🔄 Refresh token: {jwt_tokens['refresh_token'][:50]}...")
 
-        # If frontend redirect URI is provided, redirect there with secure cookies
-        if frontend_redirect_uri:
-            response = RedirectResponse(url=frontend_redirect_uri)
-            
-            # Set secure HTTP-only cookies for tokens
-            response.set_cookie(
-                key="access_token",
-                value=jwt_tokens['access_token'],
-                max_age=24 * 60 * 60,  # 24 hours
-                httponly=True,  # Prevent XSS
-                secure=False,   # Set to True in production with HTTPS
-                samesite="lax"  # CSRF protection
-            )
-            
-            if jwt_tokens.get('refresh_token'):
-                response.set_cookie(
-                    key="refresh_token", 
-                    value=jwt_tokens['refresh_token'],
-                    max_age=30 * 24 * 60 * 60,  # 30 days
-                    httponly=True,
-                    secure=False,  # Set to True in production with HTTPS
-                    samesite="lax"
-                )
-            
-            # Add user info to URL for frontend session storage
-            user_params = urllib.parse.urlencode({
-                'auth': 'success',
-                'user_id': user.id,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'user_type': user.user_type.value if user.user_type else '',
-                'needs_role_selection': 'true' if user.user_type is None else 'false',
-                'profile_picture_url': user.profile_picture_url or ''
-            })
-            redirect_url_with_user_info = f"{frontend_redirect_uri}?{user_params}"
-            response.headers["location"] = redirect_url_with_user_info
-            return response
-
-        # Return tokens directly
-        login_response = LoginResponse(
-            access_token=session_data['access_token'],
-            refresh_token=session_data['refresh_token'],
-            token_type=session_data['token_type'],
-            user=UserResponse(
-                id=user.id,
-                email=user.email,
-                first_name=user.first_name,
-                last_name=user.last_name,
-                display_name=user.display_name,
-                profile_picture_url=user.profile_picture_url,
-                user_type=user.user_type,
-                is_active=user.is_active,
-                is_verified=user.is_verified,
-                email_verified=user.email_verified,
-                created_at=user.created_at,
-                last_login=user.last_login
-            )
+        # Determine redirect URL - use provided frontend_redirect_uri or default
+        redirect_url = frontend_redirect_uri or "http://localhost:3000/dashboard"
+        
+        # Always create redirect response with HTTP-only cookies
+        response = RedirectResponse(url=redirect_url)
+        
+        # Set secure HTTP-only cookies for tokens
+        logger.info(f"🍪 Setting access_token cookie: {jwt_tokens['access_token'][:50]}...")
+        response.set_cookie(
+            key="access_token",
+            value=jwt_tokens['access_token'],
+            max_age=24 * 60 * 60,  # 24 hours
+            httponly=True,  # Prevent XSS
+            secure=False,   # Set to True in production with HTTPS
+            samesite="lax",  # CSRF protection
+            path="/",       # Explicitly set path
+            domain=None     # Let browser determine domain
         )
         
-        return AuthCallbackResponse(
-            success=True,
-            message="Authentication successful",
-            tokens=login_response,
-            user={
-                "id": user.id,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "user_type": user.user_type.value if user.user_type else None,
-                "needs_role_selection": user.user_type is None,
-                "profile_picture_url": user.profile_picture_url
-            }
-        )
+        if jwt_tokens.get('refresh_token'):
+            logger.info(f"🍪 Setting refresh_token cookie: {jwt_tokens['refresh_token'][:50]}...")
+            response.set_cookie(
+                key="refresh_token", 
+                value=jwt_tokens['refresh_token'],
+                max_age=30 * 24 * 60 * 60,  # 30 days
+                httponly=True,
+                secure=False,  # Set to True in production with HTTPS
+                samesite="lax",
+                path="/",       # Explicitly set path
+                domain=None     # Let browser determine domain
+            )
+        else:
+            logger.warning("⚠️  No refresh token to set as cookie")
+        
+        # Add user info to URL for frontend session storage
+        user_params = urllib.parse.urlencode({
+            'auth': 'success',
+            'user_id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'user_type': user.user_type.value if user.user_type else '',
+            'needs_role_selection': 'true' if user.user_type is None else 'false',
+            'profile_picture_url': user.profile_picture_url or ''
+        })
+        redirect_url_with_user_info = f"{redirect_url}?{user_params}"
+        response.headers["location"] = redirect_url_with_user_info
+        
+        logger.info(f"🔀 Redirecting to: {redirect_url_with_user_info}")
+        logger.info(f"📤 Response cookies being set: access_token, refresh_token")
+        
+        return response
 
     except Exception as e:
         logger.error(f"OAuth callback error: {str(e)}")
@@ -232,16 +214,16 @@ async def update_user_type(
                 detail="Authentication required"
             )
 
-        logger.info(f"Updating user type for user ID {current_user.user_id} to {user_data.user_type}")
+        logger.info(f"Updating user type for user ID {current_user.id} to {user_data.user_type}")
         # Update user type using authenticated user's ID
         updated_user = auth_service.update_user_type(
             db=db,
-            user_id=current_user.user_id,
+            user_id=current_user.id,
             user_type=user_data.user_type,
             phone=user_data.phone
         )
         
-        logger.info(f"User type update successful for user ID {current_user.user_id}")
+        logger.info(f"User type update successful for user ID {current_user.id}")
         return UserResponse(
             id=updated_user.id,
             email=updated_user.email,
@@ -282,7 +264,7 @@ async def logout_user(
 ):
     """Logout user and clear session."""
     try:
-        success = await auth_service.logout_user(current_user.user_id)
+        success = await auth_service.logout_user(current_user.id)
         
         if not success:
             raise HTTPException(
@@ -326,10 +308,11 @@ async def get_current_user_profile(
     db: Session = Depends(get_db)
 ):
     """Get current user profile."""
-    logger.info(f"🔐 Auth Service: Direct request to /auth/me from {request.client.host}")
+    client_host = request.client.host if request.client else "unknown"
+    logger.info(f"🔐 Auth Service: Direct request to /auth/me from {client_host}")
     try:
         # Get full user data from database
-        user = auth_service.get_user_by_id(db, current_user.user_id)
+        user = auth_service.get_user_by_id(db, current_user.id)
         
         if not user:
             raise HTTPException(

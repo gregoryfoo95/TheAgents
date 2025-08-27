@@ -20,7 +20,9 @@ def get_current_user(
     
     # Get token from HTTP-only cookie
     token = request.cookies.get('access_token')
-    
+    logger.info(f"trying to see what is inside the request object: {request.cookies}")
+    logger.info(f"Received token: {token}")
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -53,14 +55,18 @@ def get_current_user(
         )
     
     return UserResponse(
-        user_id=user.id,
+        id=user.id,
         email=user.email,
         first_name=user.first_name,
         last_name=user.last_name,
         display_name=user.display_name,
+        profile_picture_url=user.profile_picture_url,
         user_type=user.user_type,
         is_active=user.is_active,
-        is_verified=user.is_verified
+        is_verified=user.is_verified,
+        email_verified=user.email_verified,
+        created_at=user.created_at,
+        last_login=user.last_login
     )
 
 def get_current_user_optional(
