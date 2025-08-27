@@ -19,6 +19,7 @@ from database.repositories import (
 )
 from sqlalchemy.orm import Session
 from fastapi import Depends
+from controllers.portfolio_controller import create_portfolio_endpoints
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, settings.log_level.upper()))
@@ -42,6 +43,9 @@ app.add_middleware(
 
 # Initialize orchestrator
 orchestrator = StockAnalysisOrchestrator()
+
+# Add portfolio management endpoints
+create_portfolio_endpoints(app)
 
 class StockAnalysisRequest(BaseModel):
     symbol: str

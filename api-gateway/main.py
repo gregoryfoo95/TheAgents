@@ -189,7 +189,7 @@ async def property_proxy(request: Request, path: str):
 @app.api_route("/stock/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], response_class=Response)
 async def stock_proxy(request: Request, path: str):
     """Proxy requests to stock AI service"""
-    return await proxy_request(request, STOCK_SERVICE_URL, f"/stock/{path}")
+    return await proxy_request(request, STOCK_SERVICE_URL, f"/{path}")
 
 @app.get("/")
 async def root() -> Dict[str, Any]:

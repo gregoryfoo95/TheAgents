@@ -41,6 +41,7 @@ import { useStockAnalysis } from '../hooks/useStockAnalysis'
 import { usePortfolio, Portfolio } from '../hooks/usePortfolio'
 import { useAuth } from '../contexts/AuthContext'
 import { PortfolioForm } from '../components/PortfolioForm'
+import { PortfolioCard } from '../components/PortfolioCard'
 import toast from 'react-hot-toast'
 
 interface StockPrediction {
@@ -116,6 +117,7 @@ export const StockPredictorPage: React.FC = () => {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [showPortfolioForm, setShowPortfolioForm] = useState(false)
+  const [analyzingPortfolioId, setAnalyzingPortfolioId] = useState<number | null>(null)
   
   const supportedSymbols = getSupportedSymbols.data
   const timeFrequencies = getTimeFrequencies.data
@@ -134,6 +136,7 @@ export const StockPredictorPage: React.FC = () => {
     setError(null)
     setPrediction(null)
     setSelectedPortfolio(portfolio)
+    setAnalyzingPortfolioId(portfolio.id) // Track which portfolio is being analyzed
     
     try {
       await analyzePortfolio.mutateAsync({
@@ -148,6 +151,7 @@ export const StockPredictorPage: React.FC = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
       toast.error('Failed to start portfolio analysis')
+      setAnalyzingPortfolioId(null) // Reset on error
     }
   }
 
@@ -210,6 +214,33 @@ export const StockPredictorPage: React.FC = () => {
       toast.error('Failed to start stock analysis')
     }
   }, [createError])
+
+  // Handle portfolio analysis status updates
+  useEffect(() => {
+    if (portfolioAnalysisStatus.data) {
+      const status = portfolioAnalysisStatus.data.status
+      
+      if (status === 'completed') {
+        // Portfolio analysis completed
+        setAnalyzingPortfolioId(null) // Reset analyzing state
+        toast.success('Portfolio analysis completed!')
+        setTabValue(2) // Switch to results tab
+      } else if (status === 'failed') {
+        // Portfolio analysis failed
+        setAnalyzingPortfolioId(null) // Reset analyzing state
+        setError('Portfolio analysis failed. Please try again.')
+        toast.error('Portfolio analysis failed')
+      }
+    }
+  }, [portfolioAnalysisStatus.data])
+
+  // Reset analyzing state when portfolio analysis mutation completes
+  useEffect(() => {
+    if (!isAnalyzing && analyzingPortfolioId !== null) {
+      // If the mutation is no longer pending but we haven't got status update yet
+      // Keep the analyzing state until we get the status update
+    }
+  }, [isAnalyzing, analyzingPortfolioId])
 
   const handlePredict = async () => {
     if (!user) {
@@ -299,7 +330,15 @@ export const StockPredictorPage: React.FC = () => {
         <Grid container spacing={4}>
           <Grid item xs={12}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h5">Your Portfolios</Typography>
+              <Box>
+                <Typography variant="h5">Your Portfolios</Typography>
+                {portfolios.data && portfolios.data.length > 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    {portfolios.data.length} active portfolios • {' '}
+                    {portfolios.data.reduce((total, p) => total + p.stocks.length, 0)} total stock positions
+                  </Typography>
+                )}
+              </Box>
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -309,6 +348,55 @@ export const StockPredictorPage: React.FC = () => {
               </Button>
             </Box>
 
+            {/* Portfolio Summary Cards */}
+            {portfolios.data && portfolios.data.length > 0 && (
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={6} sm={3}>
+                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.50' }}>
+                    <Typography variant="h4" color="primary.main" fontWeight="bold">
+                      {portfolios.data.length}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Active Portfolios
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={6} sm={3}>
+                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.50' }}>
+                    <Typography variant="h4" color="success.main" fontWeight="bold">
+                      {portfolios.data.reduce((total, p) => total + p.stocks.length, 0)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Stock Positions
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={6} sm={3}>
+                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'info.50' }}>
+                    <Typography variant="h4" color="info.main" fontWeight="bold">
+                      {Math.round(portfolios.data.reduce((total, p) => total + p.stocks.length, 0) / portfolios.data.length)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Avg Stocks/Portfolio
+                    </Typography>
+                  </Paper>
+                </Grid>
+                
+                <Grid item xs={6} sm={3}>
+                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.50' }}>
+                    <Typography variant="h4" color="warning.main" fontWeight="bold">
+                      {new Set(portfolios.data.flatMap(p => p.stocks.map(s => s.symbol))).size}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Unique Stocks
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+            )}
+
             {portfolios.isLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
@@ -316,60 +404,13 @@ export const StockPredictorPage: React.FC = () => {
             ) : portfolios.data && portfolios.data.length > 0 ? (
               <Grid container spacing={3}>
                 {portfolios.data.map((portfolio) => (
-                  <Grid item xs={12} md={6} key={portfolio.id}>
-                    <Card>
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                          <Typography variant="h6">{portfolio.name}</Typography>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeletePortfolio(portfolio.id, portfolio.name)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                        
-                        {portfolio.description && (
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                            {portfolio.description}
-                          </Typography>
-                        )}
-
-                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                          Holdings ({portfolio.stocks.length} stocks):
-                        </Typography>
-                        
-                        <Box sx={{ mb: 2 }}>
-                          {portfolio.stocks.map((stock, index) => (
-                            <Chip
-                              key={index}
-                              label={`${stock.symbol} (${stock.allocation_percentage}%)`}
-                              size="small"
-                              sx={{ mr: 1, mb: 1 }}
-                              variant="outlined"
-                            />
-                          ))}
-                        </Box>
-
-                        <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                          <Button
-                            variant="contained"
-                            size="small"
-                            startIcon={<PlayArrowIcon />}
-                            onClick={() => handlePortfolioAnalysis(portfolio)}
-                            disabled={isAnalyzing}
-                            fullWidth
-                          >
-                            {isAnalyzing ? 'Analyzing...' : 'Analyze Portfolio'}
-                          </Button>
-                        </Box>
-                        
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                          Created: {new Date(portfolio.created_at).toLocaleDateString()}
-                        </Typography>
-                      </CardContent>
-                    </Card>
+                  <Grid item xs={12} md={6} lg={4} key={portfolio.id}>
+                    <PortfolioCard
+                      portfolio={portfolio}
+                      onAnalyze={handlePortfolioAnalysis}
+                      onDelete={handleDeletePortfolio}
+                      isAnalyzing={analyzingPortfolioId === portfolio.id}
+                    />
                   </Grid>
                 ))}
               </Grid>

@@ -358,7 +358,11 @@ export const chatAPI = {
 export const stockService = {
   // Portfolio management
   getPortfolios: async (): Promise<any[]> => {
-    const response = await stockAPI.get('/stock/portfolios')
+    // Get current user info to extract user_id
+    const userResponse = await authAPI.get('/auth/me')
+    const userId = userResponse.data.id
+    
+    const response = await stockAPI.get(`/stock/users/${userId}/portfolios`)
     return response.data
   },
 
@@ -367,29 +371,57 @@ export const stockService = {
     description?: string
     stocks: { symbol: string; allocation_percentage: number }[]
   }): Promise<any> => {
-    const response = await stockAPI.post('/stock/portfolios', data)
+    // Get current user info to extract user_id
+    const userResponse = await authAPI.get('/auth/me')
+    const userId = userResponse.data.id
+    
+    const response = await stockAPI.post(`/stock/portfolios?user_id=${userId}`, data)
     return response.data
   },
 
   getPortfolio: async (id: number): Promise<any> => {
-    const response = await stockAPI.get(`/stock/portfolios/${id}`)
+    // Get current user info to extract user_id
+    const userResponse = await authAPI.get('/auth/me')
+    const userId = userResponse.data.id
+    
+    const response = await stockAPI.get(`/stock/portfolios/${id}?user_id=${userId}`)
     return response.data
   },
 
   updatePortfolio: async (id: number, data: any): Promise<any> => {
-    const response = await stockAPI.put(`/stock/portfolios/${id}`, data)
+    // Get current user info to extract user_id
+    const userResponse = await authAPI.get('/auth/me')
+    const userId = userResponse.data.id
+    
+    const response = await stockAPI.put(`/stock/portfolios/${id}?user_id=${userId}`, data)
     return response.data
   },
 
   deletePortfolio: async (id: number): Promise<void> => {
-    await stockAPI.delete(`/stock/portfolios/${id}`)
+    // Get current user info to extract user_id
+    const userResponse = await authAPI.get('/auth/me')
+    const userId = userResponse.data.id
+    
+    await stockAPI.delete(`/stock/portfolios/${id}?user_id=${userId}`)
   },
 
   // Portfolio analysis
   analyzePortfolio: async (portfolioId: number, timeFrequency: string = '1M'): Promise<any> => {
+    // Get current user info to extract user_id
+    const userResponse = await authAPI.get('/auth/me')
+    const userId = userResponse.data.id
+    
+    // First get portfolio data
+    const portfolio = await stockService.getPortfolio(portfolioId)
+    
     const response = await stockAPI.post('/stock/analyze-portfolio', {
-      portfolio_id: portfolioId,
-      time_frequency: timeFrequency
+      user_id: userId,
+      portfolio_data: portfolio.stocks.map((stock: any) => ({
+        symbol: stock.symbol,
+        allocation: stock.allocation_percentage
+      })),
+      time_frequency: timeFrequency,
+      analysis_type: 'portfolio'
     })
     return response.data
   },
@@ -400,7 +432,14 @@ export const stockService = {
     time_frequency?: string
     user_context?: string
   }): Promise<any> => {
-    const response = await stockAPI.post('/stock/analyze', data)
+    // Get current user info to extract user_id
+    const userResponse = await authAPI.get('/auth/me')
+    const userId = userResponse.data.id
+    
+    const response = await stockAPI.post('/stock/analyze', {
+      ...data,
+      user_id: userId
+    })
     return response.data
   },
 
@@ -411,7 +450,11 @@ export const stockService = {
   },
 
   getUserSessions: async (limit: number = 20, offset: number = 0): Promise<any[]> => {
-    const response = await stockAPI.get(`/stock/users/sessions?limit=${limit}&offset=${offset}`)
+    // Get current user info to extract user_id
+    const userResponse = await authAPI.get('/auth/me')
+    const userId = userResponse.data.id
+    
+    const response = await stockAPI.get(`/stock/users/${userId}/sessions?limit=${limit}&offset=${offset}`)
     return response.data
   },
 
@@ -427,16 +470,30 @@ export const stockService = {
     return response.data
   },
 
-  // Get supported stock symbols
+  // Get supported stock symbols (placeholder)
   getSupportedSymbols: async (): Promise<any> => {
-    const response = await stockAPI.get('/stock/symbols')
-    return response.data
+    // Return common stock symbols for now
+    return {
+      symbols: [
+        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX', 
+        'JNJ', 'PG', 'KO', 'PFE', 'VZ', 'XOM', 'CVX', 'WMT', 'JPM', 'V', 'MA',
+        'SPY', 'QQQ', 'VTI', 'IWM', 'SQ', 'PYPL', 'SHOP', 'CRWD', 'ZM', 'SNOW'
+      ]
+    }
   },
 
   // Get available time frequencies
   getTimeFrequencies: async (): Promise<any> => {
-    const response = await stockAPI.get('/stock/time-frequencies')
-    return response.data
+    return {
+      frequencies: [
+        { label: '1 Day', value: '1D' },
+        { label: '1 Week', value: '1W' },
+        { label: '1 Month', value: '1M' },
+        { label: '3 Months', value: '3M' },
+        { label: '6 Months', value: '6M' },
+        { label: '1 Year', value: '1Y' },
+      ]
+    }
   },
 }
 
