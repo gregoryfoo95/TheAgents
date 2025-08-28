@@ -1,7 +1,5 @@
 import time
 from typing import Dict, Any
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 from .state import StockAnalysisState, AgentAnalysis
 import json
 import logging
@@ -10,9 +8,10 @@ import yfinance as yf
 import sys
 import os
 
-# Add parent directory to sys.path to import config
+# Add parent directory to sys.path to import config and services
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
+from services.llm_service import get_llm_service
 
 logger = logging.getLogger(__name__)
 
@@ -22,16 +21,41 @@ class BaseStockAgent:
     def __init__(self, agent_name: str, agent_type: str):
         self.agent_name = agent_name
         self.agent_type = agent_type
-        if settings.openai_api_key and settings.openai_api_key != "placeholder-key-replace-with-actual-openai-key":
-            self.llm = ChatOpenAI(
-                model=settings.llm_model, 
-                temperature=settings.llm_temperature,
-                openai_api_key=settings.openai_api_key
-            )
-        else:
-            # For development without OpenAI key
-            self.llm = None
-            logger.warning(f"OpenAI API key not configured for {agent_name}. Agent will be limited.")
+        try:
+            self.llm_service = get_llm_service()
+            logger.info(f"Initialized {agent_name} with LLM service")
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM service for {agent_name}: {e}")
+            self.llm_service = None
+    
+    def _parse_response(self, response_content: str) -> Dict[str, Any]:
+        """Parse LLM response into structured data"""
+        try:
+            if "```json" in response_content:
+                json_str = response_content.split("```json")[1].split("```")[0].strip()
+            elif "{" in response_content and "}" in response_content:
+                start = response_content.find("{")
+                end = response_content.rfind("}") + 1
+                json_str = response_content[start:end]
+            else:
+                raise ValueError("No JSON found in response")
+            
+            return json.loads(json_str)
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON: {e}")
+            return {
+                "analysis": response_content,
+                "confidence": 0.5,
+                "key_factors": ["parsing_error"]
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error parsing response: {e}")
+            return {
+                "analysis": response_content,
+                "confidence": 0.5,
+                "key_factors": ["unknown_error"]
+            }
     
     def get_stock_data(self, symbol: str, period: str = "1y") -> Dict[str, Any]:
         """Fetch basic stock data for analysis"""
@@ -75,7 +99,7 @@ class FinanceGuruAgent(BaseStockAgent):
             stock_data = self.get_stock_data(symbol)
             
             prompt = f"""
-            As a Finance Guru, analyze the stock {symbol} for investment potential.
+            Analyze the stock {symbol} for investment potential.
             
             Stock Data:
             {json.dumps(stock_data, indent=2, default=str)}
@@ -102,13 +126,15 @@ class FinanceGuruAgent(BaseStockAgent):
             }}
             """
             
-            messages = [
-                SystemMessage(content="You are a senior financial analyst with 20+ years of experience in equity research and valuation."),
-                HumanMessage(content=prompt)
-            ]
+            system_prompt = "You are a senior financial analyst with 20+ years of experience in equity research and valuation."
             
-            response = await self.llm.ainvoke(messages)
-            analysis_data = self._parse_response(response.content)
+            result = await self.llm_service.generate_analysis(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                agent_type=self.agent_type
+            )
+            
+            analysis_data = self._parse_response(result['analysis'])
             
             processing_time = int((time.time() - start_time) * 1000)
             
@@ -175,13 +201,15 @@ class GeopoliticsGuruAgent(BaseStockAgent):
             }}
             """
             
-            messages = [
-                SystemMessage(content="You are a geopolitical risk analyst specializing in how global events impact financial markets and individual stocks."),
-                HumanMessage(content=prompt)
-            ]
+            system_prompt = "You are a geopolitical risk analyst specializing in how global events impact financial markets and individual stocks."
             
-            response = await self.llm.ainvoke(messages)
-            analysis_data = self._parse_response(response.content)
+            result = await self.llm_service.generate_analysis(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                agent_type=self.agent_type
+            )
+            
+            analysis_data = self._parse_response(result['analysis'])
             
             processing_time = int((time.time() - start_time) * 1000)
             
@@ -249,13 +277,15 @@ class LegalGuruAgent(BaseStockAgent):
             }}
             """
             
-            messages = [
-                SystemMessage(content="You are a corporate lawyer and regulatory specialist with expertise in securities law and corporate compliance."),
-                HumanMessage(content=prompt)
-            ]
+            system_prompt = "You are a corporate lawyer and regulatory specialist with expertise in securities law and corporate compliance."
             
-            response = await self.llm.ainvoke(messages)
-            analysis_data = self._parse_response(response.content)
+            result = await self.llm_service.generate_analysis(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                agent_type=self.agent_type
+            )
+            
+            analysis_data = self._parse_response(result['analysis'])
             
             processing_time = int((time.time() - start_time) * 1000)
             
@@ -331,13 +361,15 @@ class QuantDevAgent(BaseStockAgent):
             }}
             """
             
-            messages = [
-                SystemMessage(content="You are a quantitative analyst and technical analyst with expertise in statistical modeling, technical indicators, and algorithmic trading strategies."),
-                HumanMessage(content=prompt)
-            ]
+            system_prompt = "You are a quantitative analyst and technical analyst with expertise in statistical modeling, technical indicators, and algorithmic trading strategies."
             
-            response = await self.llm.ainvoke(messages)
-            analysis_data = self._parse_response(response.content)
+            result = await self.llm_service.generate_analysis(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                agent_type=self.agent_type
+            )
+            
+            analysis_data = self._parse_response(result['analysis'])
             
             processing_time = int((time.time() - start_time) * 1000)
             
@@ -422,13 +454,15 @@ class FinancialAnalystAgent(BaseStockAgent):
             }}
             """
             
-            messages = [
-                SystemMessage(content="You are a senior financial analyst responsible for creating final investment recommendations by synthesizing input from multiple domain experts."),
-                HumanMessage(content=prompt)
-            ]
+            system_prompt = "You are a senior financial analyst responsible for creating final investment recommendations by synthesizing input from multiple domain experts."
             
-            response = await self.llm.ainvoke(messages)
-            analysis_data = self._parse_response(response.content)
+            result = await self.llm_service.generate_analysis(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                agent_type=self.agent_type
+            )
+            
+            analysis_data = self._parse_response(result['analysis'])
             
             processing_time = int((time.time() - start_time) * 1000)
             
@@ -470,32 +504,3 @@ class FinancialAnalystAgent(BaseStockAgent):
             state['errors'].append(f"Final analysis failed: {str(e)}")
         
         return state
-    
-    def _parse_response(self, response_content: str) -> Dict[str, Any]:
-        """Parse LLM response into structured data"""
-        try:
-            if "```json" in response_content:
-                json_str = response_content.split("```json")[1].split("```")[0].strip()
-            elif "{" in response_content and "}" in response_content:
-                start = response_content.find("{")
-                end = response_content.rfind("}") + 1
-                json_str = response_content[start:end]
-            else:
-                raise ValueError("No JSON found in response")
-            
-            return json.loads(json_str)
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON: {e}")
-            return {
-                "analysis": response_content,
-                "confidence": 0.5,
-                "key_factors": ["parsing_error"]
-            }
-        except Exception as e:
-            logger.error(f"Unexpected error parsing response: {e}")
-            return {
-                "analysis": response_content,
-                "confidence": 0.5,
-                "key_factors": ["unknown_error"]
-            }

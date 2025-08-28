@@ -41,54 +41,21 @@ class StockAnalysisOrchestrator:
         workflow.add_node("quant_agent", self.quant_agent.analyze)
         workflow.add_node("final_agent", self.analyst_agent.analyze)
         
-        # Set entry point - all expert agents can run in parallel
+        # Set entry point to finance agent for sequential execution  
+        # (LangGraph concurrent execution is complex - falling back to sequential for now)
         workflow.set_entry_point("finance_agent")
         
-        # Add parallel execution for expert agents
+        # Sequential execution chain for now
         workflow.add_edge("finance_agent", "geopolitics_agent")
-        workflow.add_edge("geopolitics_agent", "legal_agent") 
+        workflow.add_edge("geopolitics_agent", "legal_agent")
         workflow.add_edge("legal_agent", "quant_agent")
-        
-        # Final analyst consolidates all inputs
         workflow.add_edge("quant_agent", "final_agent")
+        
+        # End workflow after final analysis
         workflow.add_edge("final_agent", END)
-        
-        # Add conditional edges for error handling
-        workflow.add_conditional_edges(
-            "finance_agent",
-            self._should_continue_after_finance,
-            {
-                "continue": "geopolitics_agent",
-                "end": END
-            }
-        )
-        
-        workflow.add_conditional_edges(
-            "final_agent", 
-            self._should_continue_after_final,
-            {
-                "complete": END,
-                "retry": "final_agent"
-            }
-        )
         
         return workflow.compile(checkpointer=self.checkpointer)
     
-    def _should_continue_after_finance(self, state: StockAnalysisState) -> str:
-        """Check if workflow should continue after finance analysis"""
-        if len(state.get('errors', [])) > 3:
-            logger.error("Too many errors, stopping workflow")
-            return "end"
-        return "continue"
-    
-    def _should_continue_after_final(self, state: StockAnalysisState) -> str:
-        """Check if final analysis is complete"""
-        if state.get('analysis_result'):
-            return "complete"
-        elif len(state.get('errors', [])) > 5:
-            return "complete"  # Stop retrying after too many errors
-        else:
-            return "retry"
     
     async def analyze_portfolio(self, portfolio_data: list, time_frequency: str, user_context: dict = None) -> Dict[str, Any]:
         """Run multi-agent analysis for a portfolio of stocks"""
@@ -200,36 +167,40 @@ class StockAnalysisOrchestrator:
         INPUT (Stock Symbol + Time Frame)
           ↓
         [Finance Guru Agent] 
-        - Financial metrics analysis
-        - Valuation assessment
-        - Earnings and revenue trends
+        • Financial metrics analysis
+        • Valuation assessment
+        • Earnings and revenue trends
           ↓
         [Geopolitics Guru Agent]
-        - Global events impact
-        - Trade policies effect  
-        - International market risks
+        • Global events impact
+        • Trade policies effect  
+        • International market risks
           ↓
         [Legal Guru Agent]
-        - Regulatory compliance
-        - Legal risks assessment
-        - Industry regulations
+        • Regulatory compliance
+        • Legal risks assessment
+        • Industry regulations
           ↓
         [Quant Dev Agent] 
-        - Technical analysis
-        - Statistical modeling
-        - Price patterns and trends
+        • Technical analysis
+        • Statistical modeling
+        • Price patterns and trends
           ↓
         [Financial Analyst Agent]
-        - Consolidates all expert views
-        - Creates final prediction
-        - Assigns confidence scores
+        • Consolidates all expert views
+        • Creates final prediction
+        • Assigns confidence scores
           ↓
         OUTPUT (Comprehensive Forecast + Agent Insights)
         
         Features:
         - 5 specialized AI agents
-        - Parallel analysis processing
-        - LLM-powered domain expertise
+        - Sequential processing (ensures each agent builds on previous insights)
+        - LLM-powered domain expertise (Claude 3.7 Sonnet)
+        - Comprehensive multi-perspective analysis
         - Confidence scoring and risk assessment
         - Detailed reasoning for each prediction
+        
+        Note: Sequential execution ensures proper state management and 
+        allows each agent to learn from previous agent insights.
         """

@@ -1,6 +1,8 @@
-from typing import Dict, List, Any, Optional, TypedDict
+from typing import Dict, List, Any, Optional, TypedDict, Annotated
 from pydantic import BaseModel
 from datetime import datetime, timezone
+from langgraph.graph import add_messages
+from operator import add
 
 class StockAnalysisRequest(BaseModel):
     symbol: str
@@ -31,7 +33,7 @@ class StockAnalysisState(TypedDict):
     # Input data
     request: StockAnalysisRequest
     
-    # Agent analyses
+    # Agent analyses - each agent updates its own key (no concurrent conflicts)
     finance_analysis: Optional[AgentAnalysis]
     geopolitics_analysis: Optional[AgentAnalysis] 
     legal_analysis: Optional[AgentAnalysis]
@@ -42,8 +44,8 @@ class StockAnalysisState(TypedDict):
     
     # Processing state
     current_step: str
-    errors: List[str]
-    warnings: List[str]
+    errors: Annotated[List[str], add]  # Allow concurrent error additions
+    warnings: Annotated[List[str], add]  # Allow concurrent warning additions
     
     # Results
     analysis_result: Optional[StockAnalysisResult]

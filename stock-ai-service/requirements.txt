@@ -19,6 +19,10 @@ asyncpg>=0.28.0
 psycopg2-binary>=2.9.7
 alembic>=1.12.1
 
+# AWS Bedrock dependencies
+boto3>=1.34.0
+botocore>=1.34.0
+
 # Additional AI/ML dependencies
 tiktoken>=0.7.0
 tenacity>=8.2.3

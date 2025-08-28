@@ -344,7 +344,7 @@ async def analyze_portfolio(request: PortfolioAnalysisRequest, db: Session = Dep
     """Run comprehensive multi-agent portfolio analysis"""
     
     try:
-        logger.info(f"Starting portfolio analysis for user {request.user_id} with {len(request.portfolio_data)} stocks")
+        logger.info(f"Starting portfolioStarting portfolio analysis for user {request.user_id} with {len(request.portfolio_data)} stocks")
         
         # Validate inputs
         if not request.portfolio_data or len(request.portfolio_data) == 0:
