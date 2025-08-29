@@ -326,7 +326,6 @@ export const StockPredictorPage: React.FC = () => {
       </Box>
 
       <TabPanel value={tabValue} index={0}>
-        {/* Portfolio Management Tab */}
         <Grid container spacing={4}>
           <Grid item xs={12}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -572,7 +571,7 @@ export const StockPredictorPage: React.FC = () => {
         </Grid>
       </TabPanel>
 
-      <TabPanel value={tabValue} index={1}>
+      <TabPanel value={tabValue} index={2}>
         {prediction && (
           <Grid container spacing={4}>
             <Grid item xs={12}>

@@ -62,9 +62,12 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
     0
   )
 
-  const largestPosition = portfolio.stocks.reduce((max, stock) =>
-    stock.allocation_percentage > max.allocation_percentage ? stock : max
-  )
+  const largestPosition =
+  portfolio.stocks.length > 0
+    ? portfolio.stocks.reduce((max, stock) =>
+        stock.allocation_percentage > max.allocation_percentage ? stock : max
+      )
+    : null;
 
   const getPortfolioTypeIcon = (name: string) => {
     if (name.toLowerCase().includes('tech') || name.toLowerCase().includes('innovation')) {
@@ -81,20 +84,17 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
     return '📊'
   }
 
-  const getPortfolioTypeColor = (name: string) => {
-    if (name.toLowerCase().includes('tech') || name.toLowerCase().includes('innovation')) {
-      return 'primary'
-    } else if (name.toLowerCase().includes('dividend')) {
-      return 'success'
-    } else if (name.toLowerCase().includes('esg') || name.toLowerCase().includes('sustainable')) {
-      return 'success'
-    } else if (name.toLowerCase().includes('etf') || name.toLowerCase().includes('balanced')) {
-      return 'info'
-    } else if (name.toLowerCase().includes('fintech')) {
-      return 'secondary'
-    }
-    return 'default'
-  }
+ type MuiColor = 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
+
+  const getPortfolioTypeColor = (name: string): MuiColor => {
+    const n = name.toLowerCase();
+    if (n.includes('tech') || n.includes('innovation')) return 'primary';
+    if (n.includes('dividend')) return 'success';
+    if (n.includes('esg') || n.includes('sustainable')) return 'success';
+    if (n.includes('etf') || n.includes('balanced')) return 'info';
+    if (n.includes('fintech')) return 'secondary';
+    return 'info'; // <— safe fallback
+  };
 
   return (
     <Card 
@@ -150,9 +150,15 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
             </Paper>
           </Box>
           
-          <Typography variant="caption" color="text.secondary">
-            Top holding: <strong>{largestPosition.symbol} ({largestPosition.allocation_percentage}%)</strong>
-          </Typography>
+          {largestPosition ? (
+            <Typography variant="caption" color="text.secondary">
+              Top holding: <strong>{largestPosition.symbol} ({largestPosition.allocation_percentage}%)</strong>
+            </Typography>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              No holdings yet
+            </Typography>
+          )}
         </Box>
 
         {/* Stock Holdings */}
