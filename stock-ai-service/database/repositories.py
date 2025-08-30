@@ -1,3 +1,4 @@
+from asyncio.log import logger
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import desc, and_
@@ -67,6 +68,11 @@ class StockAnalysisRepository(BaseRepository):
     ) -> StockAnalysisSession:
         """Create a new stock analysis session"""
         
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"🔨 Creating session with user_id={user_id}, symbol='{stock_symbol}', type='{analysis_type}'")
+        
         session = StockAnalysisSession(
             user_id=user_id,
             stock_symbol=stock_symbol.upper() if stock_symbol else "PORTFOLIO",
@@ -77,10 +83,37 @@ class StockAnalysisRepository(BaseRepository):
             portfolio_data=portfolio_data
         )
         
-        self.db.add(session)
-        self.db.commit()
-        self.db.refresh(session)
-        return session
+        logger.info(f"📋 Session object created with ID: {session.session_id}")
+        
+        try:
+            logger.info(f"➕ Adding session to database...")
+            self.db.add(session)
+            
+            logger.info(f"🔄 Flushing to ensure immediate visibility...")
+            self.db.flush()  # Ensure immediate visibility
+            
+            logger.info(f"✅ Session after flush - ID: {session.session_id}")
+            
+            logger.info(f"💾 Committing transaction...")
+            self.db.commit()
+            
+            logger.info(f"🔄 Refreshing session from database...")
+            self.db.refresh(session)
+            
+            logger.info(f"🎉 Session creation completed! Final ID: {session.session_id}")
+            
+            # Let's immediately try to query it back to verify
+            test_query = self.db.query(StockAnalysisSession).filter(
+                StockAnalysisSession.session_id == session.session_id
+            ).first()
+            logger.info(f"🔍 Verification query result: {test_query is not None}")
+            
+            return session
+            
+        except Exception as e:
+            logger.error(f"💥 Error during session creation: {type(e).__name__}: {str(e)}")
+            self.db.rollback()
+            raise
     
     def update_session_status(
         self,
@@ -92,6 +125,7 @@ class StockAnalysisRepository(BaseRepository):
         """Update session status and completion info"""
         
         session = self.get(session_id)
+        logger.info(f"🔄 Updating session {session_id} to status '{status}'")
         if session:
             session.status = status
             if confidence_score is not None:
@@ -106,7 +140,7 @@ class StockAnalysisRepository(BaseRepository):
     
     def get_user_sessions(
         self, 
-        user_id: uuid.UUID,
+        user_id: int,
         limit: int = 20,
         offset: int = 0
     ) -> List[StockAnalysisSession]:
@@ -127,17 +161,71 @@ class StockAnalysisRepository(BaseRepository):
     ) -> Optional[StockAnalysisSession]:
         """Get session with all related data"""
         
-        return (
-            self.db.query(StockAnalysisSession)
-            .options(
-                selectinload(StockAnalysisSession.agent_analyses),
-                selectinload(StockAnalysisSession.predictions),
-                selectinload(StockAnalysisSession.chat_messages),
-                selectinload(StockAnalysisSession.errors)
+        import logging
+        from sqlalchemy import text
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"🔍 Repository: get_session_with_details called with session_id: {session_id}")
+        logger.info(f"📊 Session ID type: {type(session_id)}")
+        
+        try:
+            # First, let's try a direct raw SQL query to see what's in the database
+            logger.info(f"🔍 Testing raw SQL query to check if session exists...")
+            raw_result = self.db.execute(
+                text("SELECT session_id, stock_symbol, status, created_at FROM stock_analysis_sessions WHERE session_id = :session_id"),
+                {"session_id": session_id}
+            ).fetchone()
+            logger.info(f"🧪 Raw SQL result: {raw_result}")
+            
+            # Let's also check what sessions exist in total
+            logger.info(f"🔍 Checking total sessions in database...")
+            count_result = self.db.execute(text("SELECT COUNT(*) FROM stock_analysis_sessions")).fetchone()
+            logger.info(f"📊 Total sessions in database: {count_result[0] if count_result else 'Unknown'}")
+            
+            # Show recent sessions
+            recent_sessions = self.db.execute(
+                text("SELECT session_id, stock_symbol, status, created_at FROM stock_analysis_sessions ORDER BY created_at DESC LIMIT 3")
+            ).fetchall()
+            logger.info(f"📋 Recent sessions in database:")
+            for session in recent_sessions:
+                logger.info(f"   - {session[0]} | {session[1]} | {session[2]} | {session[3]}")
+            
+            # Now try the original SQLAlchemy query
+            logger.info(f"🗄️ Executing SQLAlchemy query...")
+            
+            # Build the query step by step for debugging
+            base_query = self.db.query(StockAnalysisSession)
+            logger.info(f"📝 Base query created")
+            
+            filtered_query = base_query.filter(StockAnalysisSession.session_id == session_id)
+            logger.info(f"📝 Filter applied for session_id: {session_id}")
+            
+            # Let's see what SQL this generates
+            logger.info(f"🔍 Generated SQL: {str(filtered_query)}")
+            
+            result = (
+                self.db.query(StockAnalysisSession)
+                .options(
+                    selectinload(StockAnalysisSession.agent_analyses),
+                    selectinload(StockAnalysisSession.predictions),
+                    selectinload(StockAnalysisSession.chat_messages),
+                    selectinload(StockAnalysisSession.errors)
+                )
+                .filter(StockAnalysisSession.session_id == session_id)
+                .first()
             )
-            .filter(StockAnalysisSession.session_id == session_id)
-            .first()
-        )
+            logger.info(f"✅ Database query completed. Result: {result is not None}")
+            if result:
+                logger.info(f"📋 Found session: ID={result.session_id}, Status={result.status}, Symbol={result.stock_symbol}")
+            else:
+                logger.warning(f"❌ No session found with ID: {session_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"💥 Database query failed with exception: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"🔍 Full traceback: {traceback.format_exc()}")
+            raise
     
     def get_by_workflow_id(self, workflow_id: uuid.UUID) -> Optional[StockAnalysisSession]:
         """Get session by workflow ID"""

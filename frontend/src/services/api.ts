@@ -44,6 +44,7 @@ const stockAPI = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 180000, // 3 minutes for stock analysis operations
 })
 
 // Token management - now using HTTP-only cookies
@@ -405,25 +406,118 @@ export const stockService = {
     await stockAPI.delete(`/stock/portfolios/${id}?user_id=${userId}`)
   },
 
-  // Portfolio analysis
-  analyzePortfolio: async (portfolioId: number, timeFrequency: string = '1M'): Promise<any> => {
+
+  // Portfolio analysis (streaming with EventSource)
+  analyzePortfolioStream: async (
+    portfolioData: Array<{ symbol: string; allocation_percentage: number }>,
+    timeFrequency: string = '1M',
+    onEvent: (eventData: any) => void
+  ): Promise<{ abort: () => void }> => {
     // Get current user info to extract user_id
     const userResponse = await authAPI.get('/auth/me')
     const userId = userResponse.data.id
     
-    // First get portfolio data
-    const portfolio = await stockService.getPortfolio(portfolioId)
+    // Validate portfolio allocations sum to 100%
+    const totalAllocation = portfolioData.reduce((sum, stock) => sum + stock.allocation_percentage, 0)
+    if (Math.abs(totalAllocation - 100) > 0.1) {
+      throw new Error(`Portfolio allocations must sum to 100%, got ${totalAllocation.toFixed(1)}%`)
+    }
     
-    const response = await stockAPI.post('/stock/analyze-portfolio', {
+    // Create streaming request payload
+    const requestPayload = {
       user_id: userId,
-      portfolio_data: portfolio.stocks.map((stock: any) => ({
+      portfolio_data: portfolioData.map(stock => ({
         symbol: stock.symbol,
         allocation: stock.allocation_percentage
       })),
       time_frequency: timeFrequency,
       analysis_type: 'portfolio'
-    })
-    return response.data
+    }
+    
+    // Since EventSource only supports GET requests, we need to initiate the stream via POST
+    // and then connect to a session-based EventSource endpoint
+    let eventSource: EventSource | null = null
+    let isAborted = false
+    
+    try {
+      // First, initiate the streaming analysis session
+      console.log('🚀 Initiating portfolio stream analysis:', requestPayload)
+      const initResponse = await stockAPI.post('/stock/analyze-portfolio-stream-init', requestPayload)
+      console.log('✅ Stream init response:', initResponse.data)
+      const { session_id } = initResponse.data
+      
+      console.log(`📡 Connecting to EventSource stream for session ${session_id}`) //This is the problem, the session_id here is different from the one that the frontend is polling
+      // Connect to the EventSource stream using the session ID
+      const streamUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/stock/stream/${session_id}`
+      eventSource = new EventSource(streamUrl, { withCredentials: true })
+      
+      // Handle all message events (EventSource automatically handles reconnection)
+      eventSource.onmessage = (event) => {
+        try {
+          const eventData = JSON.parse(event.data)
+          onEvent(eventData)
+          
+          // Close connection on completion or error
+          if (eventData.type === 'session_complete' || eventData.type === 'error') {
+            eventSource?.close()
+          }
+        } catch (parseError) {
+          console.warn('Failed to parse SSE data:', event.data, parseError)
+        }
+      }
+      
+      // Handle connection open
+      eventSource.onopen = () => {
+        console.log('📡 EventSource connection opened')
+      }
+      
+      // Handle errors
+      eventSource.onerror = (error) => {
+        console.error('❌ EventSource error:', error)
+        if (!isAborted) {
+          onEvent({ 
+            type: 'error', 
+            message: 'Connection lost. Attempting to reconnect...' 
+          })
+        }
+      }
+      
+    } catch (error) {
+      console.error('Failed to initiate streaming analysis:', error)
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to start analysis'
+      if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as any).response
+        if (response?.data?.detail) {
+          errorMessage = response.data.detail
+        } else if (response?.status === 404) {
+          errorMessage = 'Portfolio analysis service not found. Please check your network connection.'
+        } else if (response?.status >= 500) {
+          errorMessage = 'Server error occurred. Please try again later.'
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      
+      onEvent({ 
+        type: 'error', 
+        message: errorMessage
+      })
+      throw error
+    }
+    
+    // Return abort handle
+    return { 
+      abort: () => {
+        isAborted = true
+        if (eventSource) {
+          eventSource.close()
+          eventSource = null
+        }
+        onEvent({ type: 'cancelled', message: 'Analysis cancelled by user' })
+      }
+    }
   },
 
   // Single stock analysis
@@ -445,6 +539,7 @@ export const stockService = {
 
   // Analysis results
   getAnalysisSession: async (sessionId: string): Promise<any> => {
+    console.log(`Fetching analysis session ${sessionId}`)
     const response = await stockAPI.get(`/stock/sessions/${sessionId}`)
     return response.data
   },

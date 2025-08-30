@@ -42,6 +42,7 @@ import { usePortfolio, Portfolio } from '../hooks/usePortfolio'
 import { useAuth } from '../contexts/AuthContext'
 import { PortfolioForm } from '../components/PortfolioForm'
 import { PortfolioCard } from '../components/PortfolioCard'
+import { PortfolioAnalysisModal } from '../components/PortfolioAnalysisModal'
 import toast from 'react-hot-toast'
 
 interface StockPrediction {
@@ -118,12 +119,49 @@ export const StockPredictorPage: React.FC = () => {
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [showPortfolioForm, setShowPortfolioForm] = useState(false)
   const [analyzingPortfolioId, setAnalyzingPortfolioId] = useState<number | null>(null)
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false)
+  const [modalPortfolio, setModalPortfolio] = useState<Portfolio | null>(null)
   
   const supportedSymbols = getSupportedSymbols.data
   const timeFrequencies = getTimeFrequencies.data
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue)
+  }
+
+  const handleOpenAnalysisModal = (portfolio: Portfolio) => {
+    setModalPortfolio(portfolio)
+    setShowAnalysisModal(true)
+  }
+
+  const handleCloseAnalysisModal = () => {
+    setShowAnalysisModal(false)
+    setModalPortfolio(null)
+  }
+
+  const handleStartAnalysis = async () => {
+    if (!modalPortfolio || !user) return
+
+    setError(null)
+    setPrediction(null)
+    setSelectedPortfolio(modalPortfolio)
+    setAnalyzingPortfolioId(modalPortfolio.id)
+    
+    try {
+      await analyzePortfolio.mutateAsync({
+        portfolio_id: modalPortfolio.id,
+        time_frequency: timeFrequency,
+        analysis_type: 'portfolio'
+      })
+      
+      toast.success(`Analysis started for ${modalPortfolio.name}! This may take a few moments...`)
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      toast.error('Failed to start portfolio analysis')
+      setAnalyzingPortfolioId(null)
+      setShowAnalysisModal(false)
+    }
   }
 
   const handlePortfolioAnalysis = async (portfolio: Portfolio) => {
@@ -217,6 +255,7 @@ export const StockPredictorPage: React.FC = () => {
 
   // Handle portfolio analysis status updates
   useEffect(() => {
+    console.log('📊 Portfolio analysis status update:', portfolioAnalysisStatus.data)
     if (portfolioAnalysisStatus.data) {
       const status = portfolioAnalysisStatus.data.status
       
@@ -296,7 +335,7 @@ export const StockPredictorPage: React.FC = () => {
           <TrendingUpIcon fontSize="large" color="primary" />
           Stock Market Predictor
         </Typography>
-        <Typography variant="h6" color="text.secondary" paragraph>
+        <Typography variant="h6" color="textSecondary" paragraph>
           Get AI-powered stock predictions using multi-agent analysis from Finance, Geopolitics, Legal, and Quantitative experts
         </Typography>
       </Box>
@@ -334,7 +373,7 @@ export const StockPredictorPage: React.FC = () => {
                 {portfolios.data && portfolios.data.length > 0 && (
                   <Typography variant="body2" color="text.secondary">
                     {portfolios.data.length} active portfolios • {' '}
-                    {portfolios.data.reduce((total, p) => total + p.stocks.length, 0)} total stock positions
+                    {portfolios.data.reduce((total, p) => total + (p.stocks?.length || 0), 0)} total stock positions
                   </Typography>
                 )}
               </Box>
@@ -348,52 +387,69 @@ export const StockPredictorPage: React.FC = () => {
             </Box>
 
             {/* Portfolio Summary Cards */}
-            {portfolios.data && portfolios.data.length > 0 && (
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={6} sm={3}>
-                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.50' }}>
-                    <Typography variant="h4" color="primary.main" fontWeight="bold">
-                      {portfolios.data.length}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Active Portfolios
-                    </Typography>
-                  </Paper>
-                </Grid>
+            {portfolios.data && portfolios.data.length > 0 && (() => {
+              try {
+                const totalStocks = portfolios.data.reduce((total, p) => total + (p.stocks?.length || 0), 0)
+                const avgStocks = portfolios.data.length > 0 ? Math.round(totalStocks / portfolios.data.length) : 0
+                const uniqueStocks = new Set(portfolios.data.flatMap(p => p.stocks?.map(s => s.symbol) || [])).size
                 
-                <Grid item xs={6} sm={3}>
-                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.50' }}>
-                    <Typography variant="h4" color="success.main" fontWeight="bold">
-                      {portfolios.data.reduce((total, p) => total + p.stocks.length, 0)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Stock Positions
-                    </Typography>
-                  </Paper>
-                </Grid>
-                
-                <Grid item xs={6} sm={3}>
-                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'info.50' }}>
-                    <Typography variant="h4" color="info.main" fontWeight="bold">
-                      {Math.round(portfolios.data.reduce((total, p) => total + p.stocks.length, 0) / portfolios.data.length)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Avg Stocks/Portfolio
-                    </Typography>
-                  </Paper>
-                </Grid>
-                
-                <Grid item xs={6} sm={3}>
-                  <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.50' }}>
-                    <Typography variant="h4" color="warning.main" fontWeight="bold">
-                      {new Set(portfolios.data.flatMap(p => p.stocks.map(s => s.symbol))).size}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Unique Stocks
-                    </Typography>
-                  </Paper>
-                </Grid>
-              </Grid>
+                return (
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={6} sm={3}>
+                      <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#e3f2fd' }}>
+                        <Typography variant="h4" color="primary" fontWeight="bold">
+                          {portfolios.data.length}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          Active Portfolios
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    
+                    <Grid item xs={6} sm={3}>
+                      <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#e8f5e8' }}>
+                        <Typography variant="h4" color="secondary" fontWeight="bold">
+                          {totalStocks}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          Stock Positions
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    
+                    <Grid item xs={6} sm={3}>
+                      <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#f3e5f5' }}>
+                        <Typography variant="h4" color="primary" fontWeight="bold">
+                          {avgStocks}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          Avg Stocks/Portfolio
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    
+                    <Grid item xs={6} sm={3}>
+                      <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#fff3e0' }}>
+                        <Typography variant="h4" color="secondary" fontWeight="bold">
+                          {uniqueStocks}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          Unique Stocks
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                  </Grid>
+                )
+              } catch (error) {
+                console.error('Error calculating portfolio stats:', error)
+                return null
+              }
+            })()}
+
+            {portfolios.error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                Failed to load portfolios: {portfolios.error.message}
+              </Alert>
             )}
 
             {portfolios.isLoading ? (
@@ -402,13 +458,14 @@ export const StockPredictorPage: React.FC = () => {
               </Box>
             ) : portfolios.data && portfolios.data.length > 0 ? (
               <Grid container spacing={3}>
-                {portfolios.data.map((portfolio) => (
+                {portfolios.data.filter(portfolio => portfolio && portfolio.id).map((portfolio) => (
                   <Grid item xs={12} md={6} lg={4} key={portfolio.id}>
                     <PortfolioCard
                       portfolio={portfolio}
                       onAnalyze={handlePortfolioAnalysis}
                       onDelete={handleDeletePortfolio}
                       isAnalyzing={analyzingPortfolioId === portfolio.id}
+                      onOpenModal={handleOpenAnalysisModal}
                     />
                   </Grid>
                 ))}
@@ -436,7 +493,7 @@ export const StockPredictorPage: React.FC = () => {
 
         {/* Time Frequency Selection for Portfolio Analysis */}
         <Box sx={{ mt: 4 }}>
-          <Card sx={{ bgcolor: 'primary.50' }}>
+          <Card sx={{ bgcolor: '#e3f2fd' }}>
             <CardContent>
               <Typography variant="h6" gutterBottom color="primary">
                 Analysis Settings
@@ -446,7 +503,7 @@ export const StockPredictorPage: React.FC = () => {
                 Prediction Time Frame
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-                {frequencyOptions.map((option) => (
+                {frequencyOptions.map((option: any) => (
                   <Chip
                     key={option.value}
                     label={option.label}
@@ -490,7 +547,7 @@ export const StockPredictorPage: React.FC = () => {
                     Prediction Time Frame
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
-                    {frequencyOptions.map((option) => (
+                    {frequencyOptions.map((option: any) => (
                       <Chip
                         key={option.value}
                         label={option.label}
@@ -542,7 +599,7 @@ export const StockPredictorPage: React.FC = () => {
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <Card sx={{ bgcolor: 'primary.50' }}>
+            <Card sx={{ bgcolor: '#e3f2fd' }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom color="primary">
                   How It Works
@@ -699,6 +756,16 @@ export const StockPredictorPage: React.FC = () => {
           setShowPortfolioForm(false)
           portfolios.refetch()
         }}
+      />
+
+      {/* Portfolio Analysis Modal */}
+      <PortfolioAnalysisModal
+        open={showAnalysisModal}
+        onClose={handleCloseAnalysisModal}
+        portfolio={modalPortfolio}
+        timeFrequency={timeFrequency}
+        isAnalyzing={analyzingPortfolioId === modalPortfolio?.id}
+        onStartAnalysis={handleStartAnalysis}
       />
     </Container>
   )

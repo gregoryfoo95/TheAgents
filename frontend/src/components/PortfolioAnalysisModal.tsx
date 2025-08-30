@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { keyframes } from '@mui/system'
-import { stockService, authService } from '../services/api'
-import axios from 'axios'
+import { stockService } from '../services/api'
 import {
   Dialog,
   DialogTitle,
@@ -65,10 +64,12 @@ interface Agent {
 interface AnalysisStep {
   id: string
   timestamp: Date
-  type: 'user_message' | 'agent_start' | 'agent_complete' | 'system_message' | 'final_result'
+  type: 'user_message' | 'agent_start' | 'agent_complete' | 'agent_thinking' | 'system_message' | 'final_result'
   agentId?: string
+  agentName?: string
   content: string
   analysis?: string
+  confidence?: number
 }
 
 interface PortfolioAnalysisModalProps {
@@ -152,11 +153,127 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
 }) => {
   const [currentAgents, setCurrentAgents] = useState<Agent[]>(agents)
   const [analysisSteps, setAnalysisSteps] = useState<AnalysisStep[]>([])
-  const [currentAgentIndex, setCurrentAgentIndex] = useState(-1)
   const [showFinalResult, setShowFinalResult] = useState(false)
   const [finalAnalysis, setFinalAnalysis] = useState<any>(null)
   const [analysisError, setAnalysisError] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const streamHandleRef = useRef<{ abort: () => void } | null>(null)
+
+  // Handle streaming events
+  const handleStreamEvent = (eventData: any) => {
+    console.log('Stream event:', eventData)
+    
+    switch (eventData.type) {
+      case 'session_start':
+        // Session started
+        break
+        
+      case 'user_message':
+        // User message (already handled by initial setup)
+        break
+        
+      case 'system_message':
+        const systemStep: AnalysisStep = {
+          id: `system-${Date.now()}`,
+          timestamp: new Date(eventData.timestamp || Date.now()),
+          type: 'system_message',
+          content: eventData.content
+        }
+        setAnalysisSteps(prev => [...prev, systemStep])
+        break
+        
+      case 'agent_start':
+        // Update agent status to analyzing
+        setCurrentAgents(prev => prev.map(agent => 
+          agent.id === eventData.agent_id 
+            ? { ...agent, status: 'analyzing' }
+            : agent
+        ))
+        
+        const startStep: AnalysisStep = {
+          id: `start-${eventData.agent_id}-${Date.now()}`,
+          timestamp: new Date(eventData.timestamp || Date.now()),
+          type: 'agent_start',
+          content: eventData.content,
+          agentId: eventData.agent_id,
+          agentName: eventData.agent_name
+        }
+        setAnalysisSteps(prev => [...prev, startStep])
+        break
+        
+      case 'agent_thinking':
+        const thinkingStep: AnalysisStep = {
+          id: `thinking-${eventData.agent_id}-${Date.now()}`,
+          timestamp: new Date(eventData.timestamp || Date.now()),
+          type: 'agent_thinking',
+          content: eventData.content,
+          agentId: eventData.agent_id
+        }
+        setAnalysisSteps(prev => [...prev, thinkingStep])
+        break
+        
+      case 'agent_complete':
+        // Update agent status to completed
+        setCurrentAgents(prev => prev.map(agent => 
+          agent.id === eventData.agent_id 
+            ? { ...agent, status: 'completed' }
+            : agent
+        ))
+        
+        const completeStep: AnalysisStep = {
+          id: `complete-${eventData.agent_id}-${Date.now()}`,
+          timestamp: new Date(eventData.timestamp || Date.now()),
+          type: 'agent_complete',
+          content: eventData.content,
+          agentId: eventData.agent_id,
+          agentName: eventData.agent_name,
+          analysis: eventData.analysis,
+          confidence: eventData.confidence
+        }
+        setAnalysisSteps(prev => [...prev, completeStep])
+        break
+        
+      case 'final_result':
+        setShowFinalResult(true)
+        setFinalAnalysis({
+          confidence_score: eventData.confidence_score,
+          analysis_result: eventData
+        })
+        
+        const finalStep: AnalysisStep = {
+          id: `final-${Date.now()}`,
+          timestamp: new Date(eventData.timestamp || Date.now()),
+          type: 'final_result',
+          content: eventData.content
+        }
+        setAnalysisSteps(prev => [...prev, finalStep])
+        break
+        
+      case 'session_complete':
+        // All done
+        break
+        
+      case 'error':
+        setAnalysisError(eventData.message || 'Analysis failed')
+        setCurrentAgents(prev => prev.map(agent => ({ ...agent, status: 'error' })))
+        
+        const errorStep: AnalysisStep = {
+          id: `error-${Date.now()}`,
+          timestamp: new Date(eventData.timestamp || Date.now()),
+          type: 'system_message',
+          content: `❌ Error: ${eventData.message}`
+        }
+        setAnalysisSteps(prev => [...prev, errorStep])
+        break
+        
+      case 'cancelled':
+        setAnalysisError('Analysis was cancelled')
+        break
+        
+      default:
+        console.log('Unknown stream event type:', eventData.type)
+    }
+  }
 
   // Auto scroll to bottom of chat
   useEffect(() => {
@@ -170,7 +287,6 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
     // Reset state
     setCurrentAgents(agents.map(agent => ({ ...agent, status: 'pending' })))
     setAnalysisSteps([])
-    setCurrentAgentIndex(-1) 
     setShowFinalResult(false)
     setFinalAnalysis(null)
     setAnalysisError(null)
@@ -211,52 +327,21 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
 
     const runPortfolioAnalysis = async () => {
       try {
-        // Use the existing API service with proper gateway routing
-        let result
-        if (portfolio.id) {
-          // Portfolio is saved in database, use ID-based method
-          result = await stockService.analyzePortfolio(portfolio.id, timeFrequency)
-        } else {
-          // Portfolio is not saved, make direct API call with portfolio data
-          // Get user from auth service
-          const user = await authService.getCurrentUser()
-          
-          // Create API gateway URL
-          const API_GATEWAY_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-          
-          // Make direct API call through gateway
-          const response = await axios.post(`${API_GATEWAY_URL}/stock/analyze-portfolio`, {
-            user_id: user.id,
-            portfolio_data: portfolio.stocks.map(stock => ({
-              symbol: stock.symbol,
-              allocation: stock.allocation_percentage
-            })),
-            time_frequency: timeFrequency,
-            analysis_type: 'portfolio'
-          }, {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            withCredentials: true
-          })
-          
-          result = response.data
-        }
+        // Use streaming analysis
+        const portfolioData = portfolio.stocks.map(stock => ({
+          symbol: stock.symbol,
+          allocation_percentage: stock.allocation_percentage
+        }))
         
-        // Analysis complete - update all agents to completed
-        setCurrentAgents(prev => prev.map(agent => ({ ...agent, status: 'completed' })))
+        // Start streaming analysis
+        const streamHandle = await stockService.analyzePortfolioStream(
+          portfolioData,
+          timeFrequency,
+          handleStreamEvent
+        )
         
-        // Store results and show completion
-        setFinalAnalysis(result)
-        setShowFinalResult(true)
-        
-        const completionMessage: AnalysisStep = {
-          id: `complete-${Date.now()}`,
-          timestamp: new Date(),
-          type: 'final_result',
-          content: `✅ Portfolio analysis complete! All 5 AI experts have finished their analysis. Confidence Score: ${(result.analysis_result?.confidence_score * 100).toFixed(1)}%`
-        }
-        setAnalysisSteps(prev => [...prev, completionMessage])
+        // Store handle for potential cleanup
+        streamHandleRef.current = streamHandle
 
       } catch (error) {
         console.error('Portfolio analysis failed:', error)
@@ -275,6 +360,16 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
       }
     }
   }, [isAnalyzing, portfolio, timeFrequency])
+
+  // Cleanup stream on modal close
+  useEffect(() => {
+    return () => {
+      if (streamHandleRef.current) {
+        streamHandleRef.current.abort()
+        streamHandleRef.current = null
+      }
+    }
+  }, [open])
 
   const getAgentStatus = (status: Agent['status']) => {
     switch (status) {
@@ -297,7 +392,6 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
     // Reset all state
     setCurrentAgents(agents.map(agent => ({ ...agent, status: 'pending' })))
     setAnalysisSteps([])
-    setCurrentAgentIndex(-1)
     setShowFinalResult(false)
     setFinalAnalysis(null)
     setAnalysisError(null)

@@ -6,7 +6,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
-import theme from './theme'
+import theme from './theme/index'
 import App from './App.tsx'
 import './index.css'
 

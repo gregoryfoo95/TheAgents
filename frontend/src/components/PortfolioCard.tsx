@@ -16,39 +16,14 @@ import {
   AccountBalance as AccountBalanceIcon,
 } from '@mui/icons-material'
 import { CircularProgress } from '@mui/material'
-
-interface PortfolioStock {
-  symbol: string
-  allocation_percentage: number
-}
-
-interface Portfolio {
-  id: number
-  name: string
-  description?: string
-  stocks: PortfolioStock[]
-  created_at: string
-  updated_at: string
-  is_active: boolean
-  stats?: {
-    total_stocks: number
-    total_allocation: number
-    largest_position: {
-      symbol: string
-      allocation: number
-    }
-    smallest_position: {
-      symbol: string
-      allocation: number
-    }
-  }
-}
+import { Portfolio } from '../hooks/usePortfolio'
 
 interface PortfolioCardProps {
   portfolio: Portfolio
   onAnalyze: (portfolio: Portfolio) => void
   onDelete: (portfolioId: number, portfolioName: string) => void
   isAnalyzing: boolean
+  onOpenModal?: (portfolio: Portfolio) => void
 }
 
 export const PortfolioCard: React.FC<PortfolioCardProps> = ({
@@ -56,18 +31,16 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
   onAnalyze,
   onDelete,
   isAnalyzing,
+  onOpenModal,
 }) => {
-  const totalAllocation = portfolio.stocks.reduce(
+  const totalAllocation = portfolio.stocks?.reduce(
     (sum, stock) => sum + stock.allocation_percentage,
     0
-  )
+  ) || 0
 
-  const largestPosition =
-  portfolio.stocks.length > 0
-    ? portfolio.stocks.reduce((max, stock) =>
-        stock.allocation_percentage > max.allocation_percentage ? stock : max
-      )
-    : null;
+  const largestPosition = portfolio.stocks?.reduce((max, stock) =>
+    stock.allocation_percentage > max.allocation_percentage ? stock : max
+  ) || { symbol: 'N/A', allocation_percentage: 0 }
 
   const getPortfolioTypeIcon = (name: string) => {
     if (name.toLowerCase().includes('tech') || name.toLowerCase().includes('innovation')) {
@@ -140,7 +113,7 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
           <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
             <Paper elevation={0} sx={{ bgcolor: 'grey.100', px: 1, py: 0.5, borderRadius: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                Stocks: <strong>{portfolio.stocks.length}</strong>
+                Stocks: <strong>{portfolio.stocks?.length || 0}</strong>
               </Typography>
             </Paper>
             <Paper elevation={0} sx={{ bgcolor: 'grey.100', px: 1, py: 0.5, borderRadius: 1 }}>
@@ -169,7 +142,7 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
         
         <Box sx={{ mb: 2, maxHeight: 120, overflowY: 'auto' }}>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            {portfolio.stocks
+            {(portfolio.stocks || [])
               .sort((a, b) => b.allocation_percentage - a.allocation_percentage)
               .map((stock, index) => (
                 <Chip
@@ -205,7 +178,7 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
           variant="contained"
           fullWidth
           startIcon={isAnalyzing ? <CircularProgress size={20} color="inherit" /> : <PlayArrowIcon />}
-          onClick={() => onAnalyze(portfolio)}
+          onClick={() => onOpenModal ? onOpenModal(portfolio) : onAnalyze(portfolio)}
           disabled={isAnalyzing}
           color={getPortfolioTypeColor(portfolio.name) as any}
           sx={{ py: 1 }}

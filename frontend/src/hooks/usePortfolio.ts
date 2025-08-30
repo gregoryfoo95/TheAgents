@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { stockService } from '../services/api'
 
 export interface PortfolioStock {
@@ -13,11 +13,14 @@ export interface PortfolioStock {
 
 export interface Portfolio {
   id: number
+  user_id?: number
   name: string
   description?: string
-  stocks: PortfolioStock[]
+  is_active?: boolean
+  stocks?: PortfolioStock[]
   created_at: string
   updated_at: string
+  stats?: any
 }
 
 export interface PortfolioCreateRequest {
@@ -80,11 +83,38 @@ export const usePortfolio = () => {
 
   // Start portfolio analysis
   const analyzePortfolio = useMutation({
-    mutationFn: (data: PortfolioAnalysisRequest): Promise<any> => {
-      return stockService.analyzePortfolio(data.portfolio_id, data.time_frequency)
+    mutationFn: async (data: PortfolioAnalysisRequest): Promise<any> => {
+      // Get portfolio data first
+      const portfolio = await stockService.getPortfolio(data.portfolio_id)
+      
+      // Transform to the format expected by analyzePortfolioStream  
+      const portfolioData = portfolio.stocks.map((stock: any) => ({
+        symbol: stock.symbol,
+        allocation_percentage: stock.allocation_percentage
+      }))
+      
+      // Start streaming analysis and return session info
+      return new Promise((resolve, reject) => {
+        let sessionId: string | null = null
+        
+        stockService.analyzePortfolioStream(
+          portfolioData,
+          data.time_frequency,
+          (eventData) => {
+            // Capture session_id from the first event
+            if (!sessionId && eventData.session_id) {
+              sessionId = eventData.session_id
+              resolve({ session_id: sessionId })
+            }
+            // Handle other events as needed
+          }
+        ).catch(reject)
+      })
     },
     onSuccess: (data) => {
-      setPollingSessionId(data.workflow_id || data.session_id)
+      console.log('🚀 Portfolio analysis initiated:', data)
+      console.log('✅ Portfolio analysis initiated:', data.session_id)
+      setPollingSessionId(data.session_id || data.workflow_id)
     }
   })
 
@@ -97,13 +127,21 @@ export const usePortfolio = () => {
     },
     enabled: !!pollingSessionId,
     refetchInterval: (data) => {
-      if (!data?.data || data.data.status === 'completed' || data.data.status === 'failed') {
+      // Stop polling if analysis is completed or failed
+      if (data?.state?.data?.status === 'completed' || data?.state?.data?.status === 'failed') {
         return false
       }
-      return 3000 // Poll every 3 seconds while processing
+      return 3000 // Continue polling every 3 seconds
     },
     refetchOnWindowFocus: false
   })
+
+  // Monitor analysis status and stop polling when completed
+  useEffect(() => {
+    if (analysisStatus.data?.status === 'completed' || analysisStatus.data?.status === 'failed') {
+      setPollingSessionId(null)
+    }
+  }, [analysisStatus.data?.status])
 
   // Get portfolio analysis results
   const getAnalysisResults = (sessionId: string) => {
