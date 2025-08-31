@@ -11,12 +11,12 @@ import { NavigationItem } from '../components/Navigation'
 export const PUBLIC_NAVIGATION: NavigationItem[] = [
   { name: 'Home', href: '/', icon: HomeIcon },
   { name: 'Properties', href: '/properties', icon: SearchIcon },
-  { name: 'Stock Predictor', href: '/stocks', icon: TrendingUpIcon },
   { name: 'Lawyers', href: '/lawyers', icon: ScaleIcon },
 ]
 
 export const USER_NAVIGATION: NavigationItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon },
+  { name: 'Stock Predictor', href: '/dashboard/stocks', icon: TrendingUpIcon },
   { name: 'Messages', href: '/dashboard/chat', icon: MessageIcon },
   { name: 'Bookings', href: '/dashboard/bookings', icon: EventIcon },
 ]

@@ -28,7 +28,6 @@ function App() {
           <Route index element={<HomePage />} />
           <Route path="properties" element={<PropertiesPage />} />
           <Route path="properties/:id" element={<PropertyDetailPage />} />
-          <Route path="stocks" element={<StockPredictorPage />} />
           <Route path="lawyers" element={<LawyersPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
@@ -50,6 +49,7 @@ function App() {
           <Route path="chat" element={<ChatPage />} />
           <Route path="chat/:conversationId" element={<ChatPage />} />
           <Route path="bookings" element={<BookingsPage />} />
+          <Route path="stocks" element={<StockPredictorPage />} />
         </Route>
 
         {/* 404 page */}

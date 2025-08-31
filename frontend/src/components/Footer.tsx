@@ -13,7 +13,7 @@ const FOOTER_LINKS = {
   ]
 }
 
-const COMPANY_NAME = 'PropertyMarket'
+const COMPANY_NAME = 'Agent$'
 const COMPANY_DESCRIPTION = 'The modern way to buy and sell properties without agents. Powered by AI valuations and smart recommendations.'
 const COPYRIGHT_YEAR = '2024'
 
