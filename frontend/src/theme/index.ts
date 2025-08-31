@@ -1,4 +1,5 @@
-import { createTheme, ThemeOptions } from '@mui/material/styles'
+import { createTheme, ThemeOptions, PaletteMode } from '@mui/material/styles'
+import { PETRONAS_COLORS, BRAND_GRADIENTS } from '../constants/colors'
 
 // Define custom theme colors
 declare module '@mui/material/styles' {
@@ -11,36 +12,42 @@ declare module '@mui/material/styles' {
   }
 }
 
-const themeOptions: ThemeOptions = {
+const getThemeOptions = (mode: PaletteMode): ThemeOptions => ({
   palette: {
-    mode: 'light',
+    mode,
     primary: {
-      main: '#2563eb', // Blue-600 equivalent
-      light: '#3b82f6', // Blue-500
-      dark: '#1d4ed8', // Blue-700
+      main: PETRONAS_COLORS.GREEN[500], // Primary Petronas green
+      light: PETRONAS_COLORS.GREEN[400], // Lighter green
+      dark: PETRONAS_COLORS.GREEN[600], // Darker green
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#dc2626', // Red-600 equivalent
-      light: '#ef4444', // Red-500
-      dark: '#b91c1c', // Red-700
+      main: PETRONAS_COLORS.CYAN[500], // Primary cyan
+      light: PETRONAS_COLORS.CYAN[400], // Lighter cyan
+      dark: PETRONAS_COLORS.CYAN[600], // Darker cyan
       contrastText: '#ffffff',
     },
     tertiary: {
-      main: '#059669', // Emerald-600 equivalent
-      light: '#10b981', // Emerald-500
-      dark: '#047857', // Emerald-700
+      main: PETRONAS_COLORS.ACCENT.TEAL, // Accent teal
+      light: PETRONAS_COLORS.ACCENT.MINT, // Light mint
+      dark: PETRONAS_COLORS.GREEN[700], // Dark green
       contrastText: '#ffffff',
     },
     background: {
-      default: '#f8fafc', // Slate-50
-      paper: '#ffffff',
+      default: mode === 'light' ? PETRONAS_COLORS.GREEN[50] : '#0a1e1b', // Very light mint / Very dark green
+      paper: mode === 'light' ? '#ffffff' : '#134e4a', // White / Deep green
     },
     text: {
-      primary: '#0f172a', // Slate-900
-      secondary: '#475569', // Slate-600
+      primary: mode === 'light' ? PETRONAS_COLORS.GREEN[900] : PETRONAS_COLORS.GREEN[50], // Deep green / Light mint
+      secondary: mode === 'light' ? PETRONAS_COLORS.GREEN[700] : PETRONAS_COLORS.GREEN[200], // Dark green / Light green
     },
-    divider: '#e2e8f0', // Slate-200
+    divider: mode === 'light' ? PETRONAS_COLORS.GREEN[200] : PETRONAS_COLORS.GREEN[700], // Light green / Dark green
+    ...(mode === 'dark' && {
+      action: {
+        hover: 'rgba(255, 255, 255, 0.08)',
+        selected: 'rgba(255, 255, 255, 0.12)',
+      },
+    }),
   },
   typography: {
     fontFamily: [
@@ -100,7 +107,9 @@ const themeOptions: ThemeOptions = {
         contained: {
           boxShadow: 'none',
           '&:hover': {
-            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.12)',
+            boxShadow: mode === 'light' 
+              ? '0 4px 8px rgba(0, 0, 0, 0.12)' 
+              : '0 4px 8px rgba(0, 0, 0, 0.3)',
           },
         },
       },
@@ -109,9 +118,13 @@ const themeOptions: ThemeOptions = {
       styleOverrides: {
         root: {
           borderRadius: 12,
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          boxShadow: mode === 'light' 
+            ? '0 1px 3px rgba(0, 0, 0, 0.1)' 
+            : '0 4px 6px rgba(0, 0, 0, 0.3)',
           '&:hover': {
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            boxShadow: mode === 'light' 
+              ? '0 4px 12px rgba(0, 0, 0, 0.15)' 
+              : '0 8px 16px rgba(0, 0, 0, 0.4)',
           },
         },
       },
@@ -121,6 +134,9 @@ const themeOptions: ThemeOptions = {
         root: {
           '& .MuiOutlinedInput-root': {
             borderRadius: 8,
+            ...(mode === 'dark' && {
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            }),
           },
         },
       },
@@ -132,8 +148,22 @@ const themeOptions: ThemeOptions = {
         },
       },
     },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: mode === 'light' 
+            ? 'rgba(255, 255, 255, 0.95)' 
+            : 'rgba(19, 78, 74, 0.95)', // Deep green with transparency
+          color: mode === 'light' ? PETRONAS_COLORS.GREEN[900] : PETRONAS_COLORS.GREEN[50],
+          borderBottomColor: mode === 'light' ? PETRONAS_COLORS.GREEN[200] : PETRONAS_COLORS.GREEN[700],
+        },
+      },
+    },
   },
-}
+})
 
-export const theme = createTheme(themeOptions)
+export const createAppTheme = (mode: PaletteMode) => createTheme(getThemeOptions(mode))
+
+// Default light theme for backwards compatibility
+export const theme = createAppTheme('light')
 export default theme

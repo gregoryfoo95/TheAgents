@@ -62,8 +62,21 @@ export const LoginPage: React.FC = () => {
                   mb: 2,
                 }}
               />
-              <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-                Sign in to Property Marketplace
+              <Typography 
+                variant="h4" 
+                component="h1" 
+                gutterBottom 
+                fontWeight="bold"
+                sx={{
+                  background: (theme) => theme.palette.mode === 'light'
+                    ? `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.secondary.main} 90%)`
+                    : `linear-gradient(45deg, ${theme.palette.primary.light} 30%, ${theme.palette.secondary.light} 90%)`,
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}
+              >
+                Sign in to Agent$
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Use your Google account to get started
@@ -86,11 +99,13 @@ export const LoginPage: React.FC = () => {
                 startIcon={isLoading ? <CircularProgress size={20} /> : <GoogleIcon />}
                 sx={{
                   py: 1.5,
-                  borderColor: '#4285f4',
-                  color: '#4285f4',
+                  borderColor: (theme) => theme.palette.primary.main,
+                  color: (theme) => theme.palette.primary.main,
                   '&:hover': {
-                    borderColor: '#3367d6',
-                    backgroundColor: 'rgba(66, 133, 244, 0.04)',
+                    borderColor: (theme) => theme.palette.primary.dark,
+                    backgroundColor: (theme) => theme.palette.mode === 'light'
+                      ? theme.palette.primary.main + '0A'
+                      : theme.palette.primary.dark + '20',
                   },
                 }}
               >

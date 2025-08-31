@@ -4,6 +4,7 @@ import MenuIcon from '@mui/icons-material/Menu'
 import { Brand } from './Brand'
 import { Navigation, NavigationItem } from './Navigation'
 import { UserSection } from './UserSection'
+import { ThemeToggle } from './ThemeToggle'
 import { User } from '../types'
 import { LAYOUT_CONSTANTS } from '../constants/layout'
 
@@ -34,7 +35,10 @@ export const AppHeader: AppHeaderComponent = memo(({
     <AppBar 
       position="static" 
       elevation={0}
-      sx={LAYOUT_CONSTANTS.HEADER_STYLE}
+      sx={{
+        backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid rgba(99, 102, 241, 0.1)',
+      }}
     >
       <Toolbar>
         {isMobile && (
@@ -63,6 +67,8 @@ export const AppHeader: AppHeaderComponent = memo(({
           isActive={isActive} 
           isMobile={isMobile} 
         />
+
+        <ThemeToggle size="small" />
 
         <UserSection
           user={user}

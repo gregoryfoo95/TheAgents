@@ -77,7 +77,9 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
         display: 'flex', 
         flexDirection: 'column',
         '&:hover': {
-          elevation: 4,
+          boxShadow: (theme) => theme.palette.mode === 'light'
+            ? '0 8px 25px rgba(20, 184, 166, 0.15)'
+            : '0 8px 25px rgba(20, 184, 166, 0.3)',
           transform: 'translateY(-2px)',
           transition: 'all 0.2s ease-in-out'
         }
@@ -111,12 +113,18 @@ export const PortfolioCard: React.FC<PortfolioCardProps> = ({
         {/* Portfolio Stats */}
         <Box sx={{ mb: 2 }}>
           <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-            <Paper elevation={0} sx={{ bgcolor: 'grey.100', px: 1, py: 0.5, borderRadius: 1 }}>
+            <Paper elevation={0} sx={{ 
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'grey.100' : 'grey.800', 
+              px: 1, py: 0.5, borderRadius: 1 
+            }}>
               <Typography variant="caption" color="text.secondary">
                 Stocks: <strong>{portfolio.stocks?.length || 0}</strong>
               </Typography>
             </Paper>
-            <Paper elevation={0} sx={{ bgcolor: 'grey.100', px: 1, py: 0.5, borderRadius: 1 }}>
+            <Paper elevation={0} sx={{ 
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'grey.100' : 'grey.800', 
+              px: 1, py: 0.5, borderRadius: 1 
+            }}>
               <Typography variant="caption" color="text.secondary">
                 Allocation: <strong>{totalAllocation.toFixed(1)}%</strong>
               </Typography>

@@ -4,9 +4,11 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
-import { ThemeProvider } from '@mui/material/styles'
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
-import theme from './theme/index'
+import { createAppTheme } from './theme/index'
+import { ThemeProvider } from './contexts/ThemeContext'
+import { useThemeContext } from './contexts/ThemeContext'
 import App from './App.tsx'
 import { queryClient } from './utils/queryClient'
 import './index.css'
@@ -38,9 +40,12 @@ const toastOptions = {
   },
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <ThemeProvider theme={theme}>
+const AppWithTheme: React.FC = () => {
+  const { mode } = useThemeContext()
+  const theme = createAppTheme(mode)
+
+  return (
+    <MuiThemeProvider theme={theme}>
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
@@ -52,6 +57,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </BrowserRouter>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
+    </MuiThemeProvider>
+  )
+}
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <ThemeProvider>
+      <AppWithTheme />
     </ThemeProvider>
   </React.StrictMode>,
 ) 

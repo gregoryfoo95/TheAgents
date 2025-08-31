@@ -7,7 +7,9 @@ export const FeaturesSection: React.FC = memo(() => {
   return (
     <Box sx={{ 
       py: { xs: 8, md: 12 },
-      background: SECTION_GRADIENTS.FEATURES,
+      background: (theme) => theme.palette.mode === 'light' 
+        ? SECTION_GRADIENTS.FEATURES 
+        : `linear-gradient(180deg, ${theme.palette.background.default} 0%, ${theme.palette.background.paper} 100%)`,
       position: 'relative',
     }}>
       <Container maxWidth="lg">
@@ -20,7 +22,9 @@ export const FeaturesSection: React.FC = memo(() => {
             className="slide-up"
             sx={{ 
               mb: 3,
-              background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
+              background: (theme) => theme.palette.mode === 'light'
+                ? `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.secondary.main} 90%)`
+                : `linear-gradient(45deg, ${theme.palette.primary.light} 30%, ${theme.palette.secondary.light} 90%)`,
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',

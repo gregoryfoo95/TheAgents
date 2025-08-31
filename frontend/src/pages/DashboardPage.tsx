@@ -50,7 +50,20 @@ export const DashboardPage: React.FC = () => {
     <Container maxWidth="xl" sx={{ py: 4 }}>
       {/* Welcome Header */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h3" component="h1" fontWeight="bold" gutterBottom>
+        <Typography 
+          variant="h3" 
+          component="h1" 
+          fontWeight="bold" 
+          gutterBottom
+          sx={{ 
+            background: (theme) => theme.palette.mode === 'light'
+              ? `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.secondary.main} 90%)`
+              : `linear-gradient(45deg, ${theme.palette.primary.light} 30%, ${theme.palette.secondary.light} 90%)`,
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}
+        >
           {getGreeting()}, {user?.first_name}!
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -184,7 +197,11 @@ export const DashboardPage: React.FC = () => {
                         borderRadius: 1,
                         textDecoration: 'none',
                         color: 'inherit',
-                        '&:hover': { bgcolor: 'grey.50' },
+                        '&:hover': { 
+                          bgcolor: (theme) => theme.palette.mode === 'light' 
+                            ? theme.palette.grey[50] 
+                            : theme.palette.action.hover 
+                        },
                       }}
                     >
                       <Avatar
@@ -295,10 +312,18 @@ export const DashboardPage: React.FC = () => {
                         borderRadius: 1,
                         textDecoration: 'none',
                         color: 'inherit',
-                        '&:hover': { bgcolor: 'grey.50' },
+                        '&:hover': { 
+                          bgcolor: (theme) => theme.palette.mode === 'light' 
+                            ? theme.palette.grey[50] 
+                            : theme.palette.action.hover 
+                        },
                       }}
                     >
-                      <Avatar sx={{ bgcolor: 'primary.light' }}>
+                      <Avatar sx={{ 
+                        bgcolor: (theme) => theme.palette.mode === 'light'
+                          ? theme.palette.primary.light
+                          : theme.palette.primary.main
+                      }}>
                         <UsersIcon />
                       </Avatar>
                       <Box sx={{ flex: 1, minWidth: 0 }}>

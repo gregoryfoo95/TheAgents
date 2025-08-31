@@ -536,7 +536,11 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
 
                 {step.type === 'system_message' && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
-                    <Paper sx={{ p: 1.5, bgcolor: 'grey.100', maxWidth: '90%' }}>
+                    <Paper sx={{ 
+                      p: 1.5, 
+                      bgcolor: (theme) => theme.palette.mode === 'light' ? 'grey.100' : 'grey.800', 
+                      maxWidth: '90%' 
+                    }}>
                       <Typography variant="body2" color="text.secondary" textAlign="center">
                         {step.content}
                       </Typography>
@@ -552,7 +556,9 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
                     <Paper 
                       sx={{ 
                         p: 2, 
-                        bgcolor: step.type === 'agent_complete' ? 'success.50' : 'grey.50',
+                        bgcolor: (theme) => step.type === 'agent_complete' 
+                          ? (theme.palette.mode === 'light' ? 'success.50' : 'success.800')
+                          : (theme.palette.mode === 'light' ? 'grey.50' : 'grey.800'),
                         maxWidth: '80%',
                         flexGrow: 1,
                         borderRadius: '4px 18px 18px 18px'
@@ -581,7 +587,7 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
                     <Paper 
                       sx={{ 
                         p: 2, 
-                        bgcolor: 'success.50',
+                        bgcolor: (theme) => theme.palette.mode === 'light' ? 'success.50' : 'success.800',
                         border: '2px solid',
                         borderColor: 'success.main',
                         maxWidth: '80%',

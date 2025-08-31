@@ -53,7 +53,18 @@ export const UserSection: React.FC<UserSectionProps> = memo(({
               />
             )}
             <IconButton onClick={onProfileMenuOpen} size="small">
-              <Avatar sx={{ width: 32, height: 32 }}>
+              <Avatar sx={{ 
+                width: 32, 
+                height: 32,
+                bgcolor: (theme) => theme.palette.mode === 'light' 
+                  ? theme.palette.primary.main 
+                  : theme.palette.primary.light,
+                '&:hover': {
+                  bgcolor: (theme) => theme.palette.mode === 'light' 
+                    ? theme.palette.primary.dark 
+                    : theme.palette.primary.main,
+                }
+              }}>
                 <PersonIcon />
               </Avatar>
             </IconButton>

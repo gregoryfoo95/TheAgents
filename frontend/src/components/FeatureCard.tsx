@@ -1,5 +1,5 @@
 import React, { memo } from 'react'
-import { Card, CardContent, Box, Typography } from '@mui/material'
+import { Card, CardContent, Box, Typography, useTheme } from '@mui/material'
 import { SvgIconComponent } from '@mui/icons-material'
 import { SECTION_GRADIENTS } from '../constants/homepage'
 
@@ -22,8 +22,10 @@ export const FeatureCard: React.FC<FeatureCardProps> = memo(({
       sx={{
         height: '100%',
         textAlign: 'center',
-        background: SECTION_GRADIENTS.CARD,
-        border: '1px solid rgba(99, 102, 241, 0.1)',
+        background: (theme) => theme.palette.mode === 'light' 
+          ? SECTION_GRADIENTS.CARD 
+          : `linear-gradient(145deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.default} 100%)`,
+        border: (theme) => `1px solid ${theme.palette.mode === 'light' ? 'rgba(20, 184, 166, 0.1)' : 'rgba(20, 184, 166, 0.2)'}`,
         borderRadius: '20px',
         overflow: 'hidden',
         position: 'relative',
@@ -34,13 +36,17 @@ export const FeatureCard: React.FC<FeatureCardProps> = memo(({
           left: 0,
           right: 0,
           height: '4px',
-          background: 'linear-gradient(90deg, #667eea, #764ba2)',
+          background: (theme) => theme.palette.mode === 'light' 
+            ? `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
+            : `linear-gradient(90deg, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
         },
         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
           transform: 'translateY(-12px) scale(1.02)',
-          boxShadow: '0 25px 50px rgba(99, 102, 241, 0.15)',
-          border: '1px solid rgba(99, 102, 241, 0.2)',
+          boxShadow: (theme) => theme.palette.mode === 'light'
+            ? '0 25px 50px rgba(20, 184, 166, 0.15)'
+            : '0 25px 50px rgba(20, 184, 166, 0.3)',
+          border: (theme) => `1px solid ${theme.palette.mode === 'light' ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.4)'}`,
         },
       }}
       style={{ animationDelay: `${index * 0.1}s` }}
@@ -57,8 +63,10 @@ export const FeatureCard: React.FC<FeatureCardProps> = memo(({
             justifyContent: 'center',
             mx: 'auto',
             mb: 3,
-            color: 'white',
-            boxShadow: '0 8px 24px rgba(99, 102, 241, 0.3)',
+            color: (theme) => theme.palette.mode === 'light' ? 'white' : 'white',
+            boxShadow: (theme) => theme.palette.mode === 'light'
+              ? '0 8px 24px rgba(20, 184, 166, 0.3)'
+              : '0 8px 24px rgba(20, 184, 166, 0.5)',
           }}
         >
           <IconComponent sx={{ fontSize: 40 }} />
@@ -69,7 +77,7 @@ export const FeatureCard: React.FC<FeatureCardProps> = memo(({
           fontWeight="700" 
           gutterBottom
           sx={{ 
-            color: '#1e293b',
+            color: (theme) => theme.palette.mode === 'light' ? '#1e293b' : theme.palette.text.primary,
             mb: 2,
             fontSize: '1.3rem',
           }}

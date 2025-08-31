@@ -175,7 +175,16 @@ export const PortfolioForm: React.FC<PortfolioFormProps> = ({ open, onClose, onS
           </Button>
         </Box>
 
-        <TableContainer component={Paper} sx={{ mb: 2 }}>
+        <TableContainer 
+          component={Paper} 
+          sx={{ 
+            mb: 2,
+            bgcolor: (theme) => theme.palette.mode === 'light' 
+              ? 'background.paper' 
+              : 'background.paper',
+            border: (theme) => `1px solid ${theme.palette.divider}`
+          }}
+        >
           <Table size="small">
             <TableHead>
               <TableRow>

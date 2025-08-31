@@ -25,13 +25,39 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = memo(({
       transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
     >
-      <MenuItem onClick={onClose} component={Link} to="/dashboard">
-        <DashboardIcon sx={{ mr: 1 }} />
+      <MenuItem 
+        onClick={onClose} 
+        component={Link} 
+        to="/dashboard"
+        sx={{
+          '&:hover': {
+            backgroundColor: (theme) => theme.palette.mode === 'light'
+              ? theme.palette.primary.light + '20'
+              : theme.palette.primary.dark + '20'
+          }
+        }}
+      >
+        <DashboardIcon sx={{ 
+          mr: 1, 
+          color: (theme) => theme.palette.primary.main 
+        }} />
         Profile
       </MenuItem>
       <Divider />
-      <MenuItem onClick={onLogout}>
-        <LogoutIcon sx={{ mr: 1 }} />
+      <MenuItem 
+        onClick={onLogout}
+        sx={{
+          '&:hover': {
+            backgroundColor: (theme) => theme.palette.mode === 'light'
+              ? theme.palette.error.light + '20'
+              : theme.palette.error.dark + '20'
+          }
+        }}
+      >
+        <LogoutIcon sx={{ 
+          mr: 1,
+          color: (theme) => theme.palette.error.main
+        }} />
         Logout
       </MenuItem>
     </Menu>

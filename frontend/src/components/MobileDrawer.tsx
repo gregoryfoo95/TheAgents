@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { Brand } from './Brand'
 import { NavigationItem } from './Navigation'
+import { ThemeToggle } from './ThemeToggle'
 import { User } from '../types'
 import { LAYOUT_CONSTANTS } from '../constants/layout'
 
@@ -40,12 +41,14 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = memo(({
 
   const drawerContent = (
     <Box sx={{ width: LAYOUT_CONSTANTS.DRAWER_WIDTH }}>
-      <Brand 
-        sx={{ 
-          p: 2,
-          fontSize: '1.25rem',
-        }}
-      />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1 }}>
+        <Brand 
+          sx={{ 
+            fontSize: '1.25rem',
+          }}
+        />
+        <ThemeToggle size="small" />
+      </Box>
       <Divider />
       <List>
         {navigation.map((item) => (
