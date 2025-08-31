@@ -31,7 +31,8 @@ export const Navigation: React.FC<NavigationProps> = memo(({
           to={item.href}
           startIcon={<item.icon />}
           color={isActive(item.href) ? 'primary' : 'inherit'}
-          sx={{ mr: 2 }}
+          size="small"
+          sx={{ mr: 1, minWidth: 'auto', px: 1 }}
         >
           {item.name}
         </Button>

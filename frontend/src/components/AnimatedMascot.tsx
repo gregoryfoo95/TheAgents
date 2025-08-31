@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Box } from '@mui/material'
+import { Box, useTheme } from '@mui/material'
 import { SmartToy as RobotIcon } from '@mui/icons-material'
 import { MASCOT_ANIMATIONS, ANIMATION_CONFIG } from '../constants/homepage'
+import { PETRONAS_COLORS } from '../constants/colors'
 
 interface MascotPosition {
   x: number
@@ -12,6 +13,7 @@ export const AnimatedMascot: React.FC = () => {
   const [position, setPosition] = useState<MascotPosition>({ x: 20, y: 20 })
   const [animation, setAnimation] = useState<string>('bounce')
   const [clickCount, setClickCount] = useState<number>(0)
+  const theme = useTheme()
 
   const getRandomPosition = useCallback((): MascotPosition => ({
     x: Math.random() * 70 + 10, // 10% to 80% from left
@@ -68,14 +70,14 @@ export const AnimatedMascot: React.FC = () => {
           fontSize: { xs: 50, md: 60 },
           color: '#ffffff',
           background: clickCount >= 3 
-            ? 'linear-gradient(135deg, #f093fb, #f5576c)' 
-            : 'linear-gradient(135deg, #667eea, #764ba2)',
+            ? `linear-gradient(135deg, ${PETRONAS_COLORS.CYAN[400]}, ${PETRONAS_COLORS.GREEN[400]})` 
+            : `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
           borderRadius: '50%',
           padding: 2,
           boxShadow: clickCount >= 3 
-            ? '0 8px 24px rgba(240, 147, 251, 0.6)' 
-            : '0 8px 24px rgba(99, 102, 241, 0.4)',
-          border: '3px solid rgba(255, 255, 255, 0.3)',
+            ? `0 8px 24px ${theme.palette.mode === 'light' ? 'rgba(6, 182, 212, 0.6)' : 'rgba(6, 182, 212, 0.8)'}` 
+            : `0 8px 24px ${theme.palette.mode === 'light' ? 'rgba(20, 184, 166, 0.4)' : 'rgba(20, 184, 166, 0.6)'}`,
+          border: `3px solid ${theme.palette.mode === 'light' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.2)'}`,
           transition: 'all 0.3s ease',
           '&:hover': {
             transform: 'scale(1.1) rotate(5deg)',

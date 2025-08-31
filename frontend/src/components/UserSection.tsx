@@ -26,7 +26,7 @@ export const UserSection: React.FC<UserSectionProps> = memo(({
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       {user ? (
         <>
-          {userNavigation.map((item) => (
+          {userNavigation.slice(0, 2).map((item) => (
             <Button
               key={item.name}
               component={Link}
@@ -34,14 +34,15 @@ export const UserSection: React.FC<UserSectionProps> = memo(({
               startIcon={<item.icon />}
               color={isActive(item.href) ? 'primary' : 'inherit'}
               size="small"
+              sx={{ minWidth: 'auto', px: 1 }}
             >
               {item.name}
             </Button>
           ))}
           
-          <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
-            <Typography variant="body2" sx={{ mr: 1 }}>
-              {user.first_name} {user.last_name}
+          <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+            <Typography variant="caption" sx={{ mr: 0.5 }}>
+              {user.first_name}
             </Typography>
             {user.user_type && (
               <Chip 
@@ -49,13 +50,13 @@ export const UserSection: React.FC<UserSectionProps> = memo(({
                 size="small" 
                 color="primary" 
                 variant="outlined"
-                sx={{ mr: 1 }}
+                sx={{ mr: 0.5, height: 20, fontSize: '0.7rem' }}
               />
             )}
             <IconButton onClick={onProfileMenuOpen} size="small">
               <Avatar sx={{ 
-                width: 32, 
-                height: 32,
+                width: 28, 
+                height: 28,
                 bgcolor: (theme) => theme.palette.mode === 'light' 
                   ? theme.palette.primary.main 
                   : theme.palette.primary.light,

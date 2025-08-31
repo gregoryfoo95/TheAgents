@@ -1,5 +1,5 @@
 import React, { memo } from 'react'
-import { Card, CardContent, Box, Typography, useTheme } from '@mui/material'
+import { Card, CardContent, Box, Typography } from '@mui/material'
 import { SvgIconComponent } from '@mui/icons-material'
 import { SECTION_GRADIENTS } from '../constants/homepage'
 

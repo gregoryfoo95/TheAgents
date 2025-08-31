@@ -33,18 +33,14 @@ export const AppHeader: AppHeaderComponent = memo(({
 
   return (
     <AppBar 
-      position="fixed" 
+      position="static" 
       elevation={0}
       sx={{
         backdropFilter: 'blur(10px)',
-        backgroundColor: (theme) => theme.palette.mode === 'light' 
-          ? 'rgba(255, 255, 255, 0.95)' 
-          : 'rgba(19, 78, 74, 0.95)',
-        borderBottom: (theme) => `1px solid ${theme.palette.mode === 'light' ? 'rgba(20, 184, 166, 0.1)' : 'rgba(20, 184, 166, 0.2)'}`,
-        zIndex: (theme) => theme.zIndex.appBar,
+        borderBottom: '1px solid rgba(99, 102, 241, 0.1)',
       }}
     >
-      <Toolbar sx={{ minHeight: '56px !important', py: 0.5 }}>
+      <Toolbar>
         {isMobile && (
           <IconButton
             color="inherit"
@@ -59,10 +55,11 @@ export const AppHeader: AppHeaderComponent = memo(({
         
         <Brand
           to="/"
+          showLogo={true}
           sx={{
             flexGrow: isMobile ? 1 : 0,
-            mr: 2,
-            fontSize: '1.3rem',
+            mr: 4,
+            fontSize: '1.5rem',
           }}
         />
 

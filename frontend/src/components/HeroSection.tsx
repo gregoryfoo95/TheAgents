@@ -4,6 +4,10 @@ import { Link } from 'react-router-dom'
 import { Search as SearchIcon, ArrowForward as ArrowRightIcon } from '@mui/icons-material'
 import { AnimatedMascot } from './AnimatedMascot'
 import { HERO_GRADIENTS } from '../constants/homepage'
+import { Logo } from './Logo';
+
+const LOGO_SIZE = 400;
+const ANIMATE = true;
 
 export const HeroSection: React.FC = memo(() => {
   return (
@@ -31,6 +35,7 @@ export const HeroSection: React.FC = memo(() => {
       <AnimatedMascot />
 
       <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+        <Logo width={LOGO_SIZE} height={LOGO_SIZE} animate={ANIMATE} />
         <Typography
           variant="h1"
           component="h1"
@@ -95,7 +100,7 @@ export const HeroSection: React.FC = memo(() => {
             endIcon={<SearchIcon />}
             sx={{
               background: HERO_GRADIENTS.BUTTON_PRIMARY,
-              color: '#4f46e5',
+              color: (theme) => theme.palette.primary.main,
               px: 6,
               py: 2,
               fontSize: '1.1rem',

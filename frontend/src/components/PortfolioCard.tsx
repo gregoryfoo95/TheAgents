@@ -8,14 +8,13 @@ import {
   IconButton,
   Button,
   Paper,
+  CircularProgress,
 } from '@mui/material'
 import {
   Delete as DeleteIcon,
   PlayArrow as PlayArrowIcon,
-  TrendingUp as TrendingUpIcon,
   AccountBalance as AccountBalanceIcon,
 } from '@mui/icons-material'
-import { CircularProgress } from '@mui/material'
 import { Portfolio } from '../hooks/usePortfolio'
 
 interface PortfolioCardProps {

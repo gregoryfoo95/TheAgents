@@ -14,14 +14,6 @@ import {
   CircularProgress,
   Button,
   Avatar,
-  Divider,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   Card,
   CardContent,
   Fade,
@@ -30,8 +22,6 @@ import {
 import {
   Close as CloseIcon,
   SmartToy as BotIcon,
-  Person as PersonIcon,
-  ExpandMore as ExpandMoreIcon,
   Check as CheckIcon,
   Schedule as ScheduleIcon,
   Error as ErrorIcon,
@@ -155,13 +145,13 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
   const [analysisSteps, setAnalysisSteps] = useState<AnalysisStep[]>([])
   const [showFinalResult, setShowFinalResult] = useState(false)
   const [finalAnalysis, setFinalAnalysis] = useState<any>(null)
-  const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [, setAnalysisError] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const streamHandleRef = useRef<{ abort: () => void } | null>(null)
 
   // Handle streaming events
   const handleStreamEvent = (eventData: any) => {
-    console.log('Stream event:', eventData)
+    // console.log('Stream event:', eventData)
     
     switch (eventData.type) {
       case 'session_start':
@@ -172,7 +162,7 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
         // User message (already handled by initial setup)
         break
         
-      case 'system_message':
+      case 'system_message': {
         const systemStep: AnalysisStep = {
           id: `system-${Date.now()}`,
           timestamp: new Date(eventData.timestamp || Date.now()),
@@ -181,8 +171,9 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
         }
         setAnalysisSteps(prev => [...prev, systemStep])
         break
+      }
         
-      case 'agent_start':
+      case 'agent_start': {
         // Update agent status to analyzing
         setCurrentAgents(prev => prev.map(agent => 
           agent.id === eventData.agent_id 
@@ -200,8 +191,9 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
         }
         setAnalysisSteps(prev => [...prev, startStep])
         break
+      }
         
-      case 'agent_thinking':
+      case 'agent_thinking': {
         const thinkingStep: AnalysisStep = {
           id: `thinking-${eventData.agent_id}-${Date.now()}`,
           timestamp: new Date(eventData.timestamp || Date.now()),
@@ -211,8 +203,9 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
         }
         setAnalysisSteps(prev => [...prev, thinkingStep])
         break
+      }
         
-      case 'agent_complete':
+      case 'agent_complete': {
         // Update agent status to completed
         setCurrentAgents(prev => prev.map(agent => 
           agent.id === eventData.agent_id 
@@ -232,8 +225,9 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
         }
         setAnalysisSteps(prev => [...prev, completeStep])
         break
+      }
         
-      case 'final_result':
+      case 'final_result': {
         setShowFinalResult(true)
         setFinalAnalysis({
           confidence_score: eventData.confidence_score,
@@ -248,12 +242,13 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
         }
         setAnalysisSteps(prev => [...prev, finalStep])
         break
+      }
         
       case 'session_complete':
         // All done
         break
         
-      case 'error':
+      case 'error': {
         setAnalysisError(eventData.message || 'Analysis failed')
         setCurrentAgents(prev => prev.map(agent => ({ ...agent, status: 'error' })))
         
@@ -265,13 +260,14 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
         }
         setAnalysisSteps(prev => [...prev, errorStep])
         break
+      }
         
       case 'cancelled':
         setAnalysisError('Analysis was cancelled')
         break
         
       default:
-        console.log('Unknown stream event type:', eventData.type)
+        // console.log('Unknown stream event type:', eventData.type)
     }
   }
 
@@ -344,7 +340,7 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
         streamHandleRef.current = streamHandle
 
       } catch (error) {
-        console.error('Portfolio analysis failed:', error)
+        // console.error('Portfolio analysis failed:', error)
         setAnalysisError(error instanceof Error ? error.message : 'Analysis failed')
         
         // Set all agents to error status
@@ -452,7 +448,7 @@ export const PortfolioAnalysisModal: React.FC<PortfolioAnalysisModalProps> = ({
               AI Agent Status:
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {currentAgents.map((agent, index) => {
+              {currentAgents.map((agent) => {
                 const status = getAgentStatus(agent.status)
                 return (
                   <Chip

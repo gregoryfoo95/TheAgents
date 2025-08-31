@@ -52,7 +52,13 @@ export const Layout: React.FC = () => {
         onLogout={() => handleLogout(logout)}
       />
 
-      <Box component="main" sx={{ flexGrow: 1 }}>
+      <Box 
+        component="main" 
+        sx={{ 
+          flexGrow: 1,
+          paddingTop: (theme) => theme.spacing(8), // Add padding for fixed AppBar
+        }}
+      >
         <Outlet />
       </Box>
 
